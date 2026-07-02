@@ -1,9 +1,11 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.db.config import settings
 from app.db.bootstrap import (
     ensure_admin_user,
     ensure_notification_abonnes,
@@ -39,12 +41,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+def _cors_origins() -> list[str]:
+    origins = {
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-    ],
+    }
+    if settings.frontend_url:
+        origins.add(settings.frontend_url.rstrip("/"))
+    for origin in os.getenv("CORS_ORIGINS", "").split(","):
+        value = origin.strip()
+        if value:
+            origins.add(value.rstrip("/"))
+    return sorted(origins)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,0 +1,65 @@
+# Blueprint Render — MarchéConnect
+# Déploiement : Dashboard Render → New → Blueprint → repo GitHub
+# Docs : https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: marcheconnect-api
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: marcheconnect-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: APPLE_CLIENT_ID
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: AUTOMATION_STARTUP_RUN
+        value: "false"
+
+  - type: web
+    name: marcheconnect-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && VITE_API_URL="${MARCHECONNECT_API_URL}/api" npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: MARCHECONNECT_API_URL
+        fromService:
+          type: web
+          name: marcheconnect-api
+          envVarKey: RENDER_EXTERNAL_URL
