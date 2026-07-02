@@ -65,10 +65,27 @@ Le fichier `render.yaml` à la racine décrit deux services :
 
 ### OAuth en production
 
-Ajoutez les URLs Render dans :
+#### Google Sign-In (obligatoire avant mise en ligne)
 
-- **Google Cloud** : origines JS `https://marcheconnect-web.onrender.com`
-- **Apple Developer** : domaine + URL de retour `https://marcheconnect-web.onrender.com`
+1. Ouvrez [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
+2. Sélectionnez votre **OAuth 2.0 Client ID** de type **Application Web** (le même que `GOOGLE_CLIENT_ID`).
+3. Dans **Origines JavaScript autorisées**, ajoutez **en plus** de localhost :
+   ```
+   https://marcheconnect-web.onrender.com
+   ```
+   (Remplacez par votre URL Render réelle ou domaine personnalisé.)
+4. Dans **URI de redirection autorisés**, ajoutez la même URL :
+   ```
+   https://marcheconnect-web.onrender.com
+   ```
+5. Sur **Render**, renseignez le **même** Client ID à deux endroits :
+   - Service `marcheconnect-api` → `GOOGLE_CLIENT_ID`
+   - Service `marcheconnect-web` → `VITE_GOOGLE_CLIENT_ID`
+6. Si l'écran de consentement OAuth est en mode **Test**, ajoutez les emails des testeurs dans [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
+
+Sans l'étape 3, Google renverra `origin_mismatch` et le bouton « Continuer avec Google » ne fonctionnera pas en production.
+
+#### Apple Sign-In
 
 ### Plan gratuit Render
 

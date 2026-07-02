@@ -4,6 +4,9 @@ const ENV_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 
 let cachedClientId: string | null = ENV_CLIENT_ID || null;
 let resolvePromise: Promise<string | null> | null = null;
+let scriptPromise: Promise<void> | null = null;
+let initializedClientId: string | null = null;
+let credentialHandler: ((credential: string) => void) | null = null;
 
 export function getGoogleClientId(): string {
   return cachedClientId ?? "";
@@ -49,7 +52,48 @@ declare global {
   }
 }
 
-let scriptPromise: Promise<void> | null = null;
+export function setGoogleCredentialHandler(handler: (credential: string) => void): void {
+  credentialHandler = handler;
+}
+
+export function ensureGoogleInitialized(clientId: string): void {
+  if (!window.google?.accounts?.id) {
+    throw new Error("Script Google indisponible");
+  }
+  if (initializedClientId === clientId) {
+    return;
+  }
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback: (response) => {
+      if (response.credential) {
+        credentialHandler?.(response.credential);
+      }
+    },
+    auto_select: false,
+    cancel_on_tap_outside: true,
+  });
+  initializedClientId = clientId;
+}
+
+export function renderGoogleButton(
+  container: HTMLElement,
+  options?: { width?: number }
+): void {
+  if (!window.google?.accounts?.id) {
+    throw new Error("Script Google indisponible");
+  }
+  container.innerHTML = "";
+  const width = Math.min(Math.max(options?.width ?? (container.offsetWidth || 360), 240), 400);
+  window.google.accounts.id.renderButton(container, {
+    type: "standard",
+    theme: "outline",
+    size: "large",
+    text: "continue_with",
+    locale: "fr",
+    width,
+  });
+}
 
 export function loadGoogleScript(): Promise<void> {
   if (window.google?.accounts?.id) {

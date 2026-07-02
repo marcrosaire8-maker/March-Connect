@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { AuthStagger } from "./AuthSplitLayout";
-import { loadGoogleScript, resolveGoogleClientId } from "../../lib/googleAuth";
+import {
+  ensureGoogleInitialized,
+  loadGoogleScript,
+  renderGoogleButton,
+  resolveGoogleClientId,
+  setGoogleCredentialHandler,
+} from "../../lib/googleAuth";
 import { AppleSignInButton } from "./AppleSignInButton";
 
 interface GoogleSignInButtonProps {
@@ -42,11 +48,19 @@ export function GoogleSignInButton({
   onError,
 }: GoogleSignInButtonProps) {
   const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
   const [clientId, setClientId] = useState<string | null>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [state, setState] = useState<ButtonState>("loading");
 
   onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    setGoogleCredentialHandler((credential) => {
+      onSuccessRef.current(credential);
+    });
+  }, []);
 
   useEffect(() => {
     if (disabled) {
@@ -67,7 +81,7 @@ export function GoogleSignInButton({
       .catch((error: unknown) => {
         if (cancelled) return;
         setState("unconfigured");
-        onError?.(
+        onErrorRef.current?.(
           error instanceof Error
             ? error.message
             : "Impossible de charger l'authentification Google"
@@ -77,7 +91,7 @@ export function GoogleSignInButton({
     return () => {
       cancelled = true;
     };
-  }, [disabled, onError]);
+  }, [disabled]);
 
   useEffect(() => {
     if (!clientId || disabled || !container) {
@@ -88,32 +102,9 @@ export function GoogleSignInButton({
 
     loadGoogleScript()
       .then(() => {
-        if (cancelled || !window.google?.accounts?.id) {
-          throw new Error("Script Google indisponible");
-        }
-
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response) => {
-            if (response.credential) {
-              onSuccessRef.current(response.credential);
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-
-        container.innerHTML = "";
-        const width = Math.min(Math.max(container.offsetWidth || 360, 240), 400);
-        window.google.accounts.id.renderButton(container, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          text: "continue_with",
-          locale: "fr",
-          width,
-        });
-
+        if (cancelled) return;
+        ensureGoogleInitialized(clientId);
+        renderGoogleButton(container);
         if (!cancelled) {
           setState("ready");
         }
@@ -121,7 +112,7 @@ export function GoogleSignInButton({
       .catch((error: unknown) => {
         if (cancelled) return;
         setState("unconfigured");
-        onError?.(
+        onErrorRef.current?.(
           error instanceof Error
             ? error.message
             : "Impossible d'initialiser Google Sign-In"
@@ -130,9 +121,8 @@ export function GoogleSignInButton({
 
     return () => {
       cancelled = true;
-      window.google?.accounts?.id?.cancel();
     };
-  }, [clientId, container, disabled, onError]);
+  }, [clientId, container, disabled]);
 
   if (state === "unconfigured") {
     return (
