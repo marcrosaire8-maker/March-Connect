@@ -1,21 +1,36 @@
 /** @type {import('tailwindcss').Config} */
+const brand = {
+  DEFAULT: "#1E9E5C",
+  dark: "#187A49",
+  light: "#3DBB73",
+  lighter: "#7AD9A4",
+  muted: "#E3F5EB",
+  foreground: "#FFFFFF",
+  50: "#E8F6EF",
+  100: "#D0EDE0",
+  200: "#A3DBC1",
+  300: "#76C9A2",
+  400: "#49B783",
+  500: "#2EAB6F",
+  600: "#1E9E5C",
+  700: "#187A49",
+  800: "#125A36",
+  900: "#0C3D24",
+  950: "#082818",
+};
+
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: "#24a159",
-          dark: "#1a7a4a",
-          light: "#34b86a",
-          muted: "#e8f5ec",
-          foreground: "#FFFFFF",
-        },
+        brand,
+        green: brand,
         primary: {
-          DEFAULT: "#24a159",
-          dark: "#1a7a4a",
-          light: "#34b86a",
-          foreground: "#FFFFFF",
+          DEFAULT: brand.DEFAULT,
+          dark: brand.dark,
+          light: brand.light,
+          foreground: brand.foreground,
         },
         accent: {
           DEFAULT: "#D97706",
@@ -41,8 +56,8 @@ export default {
           900: "#1C1917",
         },
         success: {
-          DEFAULT: "#059669",
-          light: "#D1FAE5",
+          DEFAULT: brand.DEFAULT,
+          light: brand.muted,
         },
         danger: {
           DEFAULT: "#DC2626",
@@ -62,10 +77,10 @@ export default {
         caption: ["0.75rem", { lineHeight: "1rem", fontWeight: "500" }],
       },
       boxShadow: {
-        card: "0 2px 16px -2px rgb(36 161 89 / 0.06), 0 8px 24px -4px rgb(0 0 0 / 0.04)",
+        card: "0 2px 16px -2px rgb(30 158 92 / 0.06), 0 8px 24px -4px rgb(0 0 0 / 0.04)",
         "card-hover":
-          "0 8px 30px -6px rgb(36 161 89 / 0.12), 0 4px 12px -2px rgb(0 0 0 / 0.06)",
-        dashboard: "0 4px 32px -8px rgb(36 161 89 / 0.1), 0 16px 48px -16px rgb(0 0 0 / 0.08)",
+          "0 8px 30px -6px rgb(30 158 92 / 0.12), 0 4px 12px -2px rgb(0 0 0 / 0.06)",
+        dashboard: "0 4px 32px -8px rgb(30 158 92 / 0.1), 0 16px 48px -16px rgb(0 0 0 / 0.08)",
       },
       borderRadius: {
         DEFAULT: "0.5rem",

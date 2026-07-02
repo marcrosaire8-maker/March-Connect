@@ -1,11 +1,15 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card } from "../components";
+import { Briefcase, Globe, Info, Send } from "lucide-react";
+import { Button } from "../components";
 import { DashboardPage } from "../components/dashboard/DashboardPage";
 import { abonnesApi, secteursApi } from "../api";
 import type { Secteur } from "../api/types";
 import { useAuth } from "../context/AuthContext";
+import { cn } from "../lib/cn";
 import { PAYS_OPTIONS } from "../lib/format";
+
+import { TogglePill } from "../components/design/TogglePill";
 
 export function MesPreferencesPage() {
   const { refreshUser, markPreferencesConfigured } = useAuth();
@@ -79,98 +83,121 @@ export function MesPreferencesPage() {
     <DashboardPage
       title="Vos préférences"
       subtitle="Choisissez les secteurs et pays qui vous intéressent pour personnaliser votre tableau de bord."
+      badge="Configuration en cours"
+      headerClassName="mt-4 lg:mt-5"
     >
-      <form
-        onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-          <Card padding="lg" className="mx-auto max-w-2xl">
-            <p className="mb-6 text-body text-neutral-600">
-              Vous ne verrez que les offres correspondant à votre sélection. Vous pourrez
-              modifier ces choix à tout moment dans Mon compte.
-            </p>
+          <div className="mx-auto max-w-2xl rounded-2xl border border-neutral-100 bg-white p-6 shadow-xl sm:p-8">
+            <div className="mb-8 flex gap-3 rounded-xl border border-brand/15 bg-brand/5 px-4 py-3.5">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand/15">
+                <Info className="size-4 text-brand" strokeWidth={2} aria-hidden="true" />
+              </div>
+              <p className="text-sm leading-relaxed text-neutral-700">
+                Vous ne verrez que les offres correspondant à votre sélection. Vous pourrez
+                modifier ces choix à tout moment dans Mon compte.
+              </p>
+            </div>
 
-            <div className="space-y-6">
-              <fieldset disabled={loading}>
-                <legend className="mb-2 text-body-sm font-medium text-neutral-700">
-                  Secteurs d&apos;activité
-                </legend>
+            <div className="space-y-8">
+              <section aria-labelledby="prefs-secteurs-label">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-brand-muted">
+                    <Briefcase className="size-4 text-brand" strokeWidth={2} aria-hidden="true" />
+                  </div>
+                  <h2
+                    id="prefs-secteurs-label"
+                    className="text-sm font-semibold uppercase tracking-wide text-neutral-800"
+                  >
+                    Secteurs d&apos;activité
+                  </h2>
+                </div>
                 {loading ? (
-                  <p className="text-body-sm text-neutral-500">Chargement…</p>
+                  <p className="text-sm text-neutral-500">Chargement…</p>
                 ) : secteurs.length === 0 ? (
-                  <p className="text-body-sm text-danger">
+                  <p className="text-sm text-danger">
                     Aucun secteur disponible. Réessayez dans un instant.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {secteurs.map((s) => (
-                      <label key={s.id} className="touch-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={selectedSecteurs.includes(s.id)}
-                          onChange={() => toggleSecteur(s.id)}
-                          className="auth-checkbox"
-                        />
-                        <span className="text-body-sm">{s.nom}</span>
-                      </label>
+                      <TogglePill
+                        key={s.id}
+                        label={s.nom}
+                        selected={selectedSecteurs.includes(s.id)}
+                        onClick={() => toggleSecteur(s.id)}
+                        disabled={loading}
+                      />
                     ))}
                   </div>
                 )}
-              </fieldset>
+              </section>
 
-              <fieldset disabled={loading}>
-                <legend className="mb-2 text-body-sm font-medium text-neutral-700">
-                  Pays suivis
-                </legend>
-                <div className="flex flex-wrap gap-1">
+              <section aria-labelledby="prefs-pays-label">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-brand-muted">
+                    <Globe className="size-4 text-brand" strokeWidth={2} aria-hidden="true" />
+                  </div>
+                  <h2
+                    id="prefs-pays-label"
+                    className="text-sm font-semibold uppercase tracking-wide text-neutral-800"
+                  >
+                    Pays suivis
+                  </h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
                   {PAYS_OPTIONS.map((p) => (
-                    <label key={p} className="touch-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={selectedPays.includes(p)}
-                        onChange={() => togglePays(p)}
-                        className="auth-checkbox"
-                      />
-                      <span className="text-body-sm">{p}</span>
-                    </label>
+                    <TogglePill
+                      key={p}
+                      label={p}
+                      selected={selectedPays.includes(p)}
+                      onClick={() => togglePays(p)}
+                      disabled={loading}
+                    />
                   ))}
                 </div>
-              </fieldset>
+              </section>
 
               {!canSubmit && !loading && (
-                <p className="text-body-sm text-amber-700" role="status">
-                  Sélectionnez au moins un secteur <strong>et</strong> un pays pour
-                  activer le bouton bleu.
+                <p className="text-sm text-amber-700" role="status">
+                  Sélectionnez au moins un secteur <strong>et</strong> un pays pour activer le
+                  bouton d&apos;enregistrement.
                 </p>
               )}
 
               {canSubmit && (
-                <p className="text-body-sm text-neutral-600" role="status">
+                <p className="text-sm text-neutral-600" role="status">
                   {selectedSecteurs.length} secteur
-                  {selectedSecteurs.length > 1 ? "s" : ""}, {selectedPays.length} pays
-                  sélectionné{selectedPays.length > 1 ? "s" : ""}.
+                  {selectedSecteurs.length > 1 ? "s" : ""}, {selectedPays.length} pays sélectionné
+                  {selectedPays.length > 1 ? "s" : ""}.
                 </p>
               )}
             </div>
-          </Card>
+          </div>
         </div>
 
         <div className="dashboard-preferences-footer shrink-0 border-t border-neutral-200 bg-surface/95 py-4 backdrop-blur-sm">
           <div className="mx-auto max-w-2xl space-y-3">
             {error && (
-              <p className="text-body-sm text-danger" role="alert">
+              <p className="text-sm text-danger" role="alert">
                 {error}
               </p>
             )}
             <Button
               type="submit"
-              variant={canSubmit ? "blue" : "secondary"}
+              variant={canSubmit ? "primary" : "secondary"}
               fullWidth
               loading={saving}
               disabled={!canSubmit}
+              className={cn(
+                canSubmit &&
+                  "shadow-lg shadow-brand/20 hover:scale-[1.01] hover:shadow-xl hover:shadow-brand/25"
+              )}
             >
-              Enregistrer mon choix
+              <span className="inline-flex items-center gap-2">
+                Enregistrer mon choix
+                {canSubmit && <Send className="size-4" strokeWidth={2} aria-hidden="true" />}
+              </span>
             </Button>
           </div>
         </div>

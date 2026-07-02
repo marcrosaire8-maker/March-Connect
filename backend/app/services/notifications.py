@@ -1,11 +1,11 @@
-"""Envoi des alertes email RSS (nouvelles offres selon les préférences de chaque abonné)."""
+"""Envoi automatique des alertes email (offres actives selon les préférences de chaque abonné)."""
 
 from __future__ import annotations
 
 import html
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +30,9 @@ from app.services.abonne_prefs import (
 from app.services.email_delivery import send_html_email
 from app.services.email_templates import MUTED, TEXT, email_offer_card, email_shell
 from app.services.notification_interval import (
+    notification_availability_label,
     notification_interval_label,
     notification_interval_minutes,
-    notification_lookback_period_label,
 )
 from app.services.offre_filters import (
     _normalize_oid_list,
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationService:
-    """Envoie les nouvelles offres correspondant aux critères de chaque abonné actif."""
+    """Envoie périodiquement les offres actives correspondant aux critères de chaque abonné."""
 
     def __init__(self) -> None:
         self._client: MongoClient | None = None
@@ -66,13 +66,22 @@ class NotificationService:
     def _lookback_minutes() -> int:
         return notification_interval_minutes()
 
-    @staticmethod
-    def _since_for_abonne(abonne: dict[str, Any], interval_minutes: int) -> datetime:
-        """Première alerte : fenêtre 24 h pour ne pas rater les offres récentes."""
-        now = datetime.now(timezone.utc)
-        if not abonne.get("last_notification_at"):
-            return now - timedelta(hours=24)
-        return now - timedelta(minutes=interval_minutes)
+    def _notification_sent_at_by_offre(
+        self, db, abonne_id: ObjectId
+    ) -> dict[ObjectId, datetime]:
+        sent_at: dict[ObjectId, datetime] = {}
+        for doc in db.notifications_envoyees.find(
+            {"abonne_id": abonne_id},
+            {"offre_id": 1, "date_envoi": 1},
+        ):
+            offre_id = doc.get("offre_id")
+            date_envoi = doc.get("date_envoi")
+            if not isinstance(offre_id, ObjectId) or not isinstance(date_envoi, datetime):
+                continue
+            previous = sent_at.get(offre_id)
+            if previous is None or date_envoi > previous:
+                sent_at[offre_id] = date_envoi
+        return sent_at
 
     @staticmethod
     def _offre_matches_abonne_strict(
@@ -164,7 +173,6 @@ class NotificationService:
         self,
         offres: list[dict[str, Any]],
         *,
-        interval_minutes: int,
         criteria_label: str,
         preview: bool = False,
     ) -> str:
@@ -184,7 +192,7 @@ class NotificationService:
             )
 
         count = len(offres)
-        period_label = notification_lookback_period_label()
+        availability_label = notification_availability_label()
         safe_criteria = html.escape(criteria_label)
         preview_banner = (
             f"""<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;
@@ -193,6 +201,18 @@ class NotificationService:
             if preview
             else ""
         )
+        if preview:
+            intro = (
+                f"<strong style=\"color:#047857;\">{count}</strong> offre(s) disponible(s) "
+                f"(aperçu), {availability_label}."
+            )
+            eyebrow = "Aperçu alertes"
+        else:
+            intro = (
+                f"<strong style=\"color:#047857;\">{count}</strong> offre(s) disponible(s), "
+                f"{availability_label}."
+            )
+            eyebrow = "Offres disponibles"
         body = f"""
         {preview_banner}
         <p style="margin:0 0 6px;font-size:14px;color:{MUTED};">
@@ -202,13 +222,12 @@ class NotificationService:
           {safe_criteria}
         </p>
         <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:{TEXT};">
-          <strong style="color:#047857;">{count}</strong> nouvelle(s) offre(s)
-          {"(aperçu)" if preview else f" publiée(s) durant {period_label}"}.
+          {intro}
         </p>
         {''.join(cards)}
         """
         return email_shell(
-            eyebrow="Nouvelles offres",
+            eyebrow=eyebrow,
             title=f"{count} opportunité{'s' if count > 1 else ''} pour vous",
             body_html=body,
             footer_note=f"Alertes automatiques {notification_interval_label()} — MarchéConnect",
@@ -226,43 +245,64 @@ class NotificationService:
         ids = db.notifications_envoyees.distinct("offre_id", {"abonne_id": abonne_id})
         return {oid for oid in ids if isinstance(oid, ObjectId)}
 
-    def _fetch_offres_for_abonne(
+    def _fetch_active_offres_for_abonne(
         self,
         db,
         abonne: dict[str, Any],
-        since: datetime,
-        already_notified: set[ObjectId],
         *,
-        ignore_dedup: bool = False,
+        max_offres: int | None = None,
     ) -> list[dict[str, Any]]:
+        """Offres actives (date limite non dépassée) correspondant aux préférences."""
         secteurs, pays = abonne_preference_lists(abonne)
         query = merge_mongo_filters(
-            {"date_scraping": {"$gte": since}},
             active_deadline_filter(),
             user_preferences_filter(secteurs, pays),
         )
-        pipeline = offres_list_aggregation_pipeline(query)
+        pipeline = offres_list_aggregation_pipeline(
+            query,
+            limit=max_offres,
+        )
         offres = list(db.offres.aggregate(pipeline))
         filtered = [
             offre
             for offre in offres
             if self._offre_matches_abonne_strict(offre, secteurs, pays, abonne)
         ]
-        if ignore_dedup or not already_notified:
-            return self._enrich_offres_for_email(db, filtered)
-        return self._enrich_offres_for_email(
-            db,
-            [offre for offre in filtered if offre["_id"] not in already_notified],
-        )
+        if max_offres is not None:
+            filtered = filtered[: max(1, max_offres)]
+        return self._enrich_offres_for_email(db, filtered)
+
+    def _pick_offres_for_scheduled_send(
+        self,
+        db,
+        abonne: dict[str, Any],
+        abonne_id: ObjectId,
+        already_notified: set[ObjectId],
+        *,
+        max_offres: int,
+    ) -> list[dict[str, Any]]:
+        """Sélectionne les offres à envoyer : d'abord non encore notifiées, puis rotation."""
+        active = self._fetch_active_offres_for_abonne(db, abonne)
+        if not active:
+            return []
+
+        limit = max(1, max_offres)
+        unnotified = [offre for offre in active if offre["_id"] not in already_notified]
+        if unnotified:
+            return unnotified[:limit]
+
+        sent_at = self._notification_sent_at_by_offre(db, abonne_id)
+        epoch = datetime.min.replace(tzinfo=timezone.utc)
+        rotated = sorted(active, key=lambda offre: sent_at.get(offre["_id"], epoch))
+        return rotated[:limit]
 
     def send_to_abonne(
         self,
         abonne: dict[str, Any],
         *,
         preview: bool = False,
-        lookback_minutes: int | None = None,
     ) -> dict[str, Any]:
-        """Envoie un digest personnalisé à un abonné (aperçu ou alerte réelle)."""
+        """Envoie un digest personnalisé à un abonné (aperçu ou alerte planifiée)."""
         if not abonne_has_active_preferences(abonne):
             return {
                 "statut": NotificationStatus.SUCCES.value,
@@ -272,25 +312,28 @@ class NotificationService:
                 "message_erreur": "Préférences secteurs/pays non configurées",
             }
 
-        interval_minutes = lookback_minutes or self._lookback_minutes()
         db = self._get_db()
-        since = (
-            datetime.now(timezone.utc) - timedelta(minutes=interval_minutes)
-            if preview
-            else self._since_for_abonne(abonne, interval_minutes)
-        )
         abonne_id = abonne["_id"]
-        already_notified = set() if preview else self._notified_offre_ids(db, abonne_id)
-        matching = self._fetch_offres_for_abonne(
-            db,
-            abonne,
-            since,
-            already_notified,
-            ignore_dedup=preview,
-        )
+        max_offres = None if preview else settings.notification_max_offres_per_email
+
+        if preview:
+            matching = self._fetch_active_offres_for_abonne(db, abonne)
+        else:
+            already_notified = self._notified_offre_ids(db, abonne_id)
+            matching = self._pick_offres_for_scheduled_send(
+                db,
+                abonne,
+                abonne_id,
+                already_notified,
+                max_offres=max_offres or settings.notification_max_offres_per_email,
+            )
         criteria_label = self._abonne_criteria_label(db, abonne)
 
         if not matching:
+            logger.info(
+                "Aucune offre active à envoyer pour %s",
+                abonne.get("email"),
+            )
             return {
                 "statut": NotificationStatus.SUCCES.value,
                 "nb_emails_envoyes": 0,
@@ -299,11 +342,10 @@ class NotificationService:
                 "message_erreur": None,
             }
 
-        subject_prefix = "Aperçu" if preview else "Nouvelles offres"
+        subject_prefix = "Aperçu" if preview else "Offres disponibles"
         subject = f"[MarchéConnect] {subject_prefix} — {len(matching)} offre(s)"
         html_body = self._build_html_email(
             matching,
-            interval_minutes=interval_minutes,
             criteria_label=criteria_label,
             preview=preview,
         )
@@ -398,22 +440,30 @@ class NotificationService:
                 }
             )
         )
-        return [ab for ab in candidates if abonne_has_active_preferences(ab)]
+        eligible: list[dict[str, Any]] = []
+        for abonne in candidates:
+            if not abonne_has_active_preferences(abonne):
+                continue
+            utilisateur_id = abonne.get("utilisateur_id")
+            if not isinstance(utilisateur_id, ObjectId):
+                continue
+            if db.utilisateurs.count_documents({"_id": utilisateur_id}, limit=1) == 0:
+                continue
+            eligible.append(abonne)
+        return eligible
 
     def run(self) -> dict[str, Any]:
         nb_envoyes = 0
         nb_echecs = 0
         nb_abonnes_traites = 0
         erreurs: list[str] = []
-        interval_minutes = self._lookback_minutes()
 
         try:
             db = self._get_db()
             abonnes = self._get_eligible_abonnes(db)
 
             logger.info(
-                "Alertes RSS : fenêtre %d min, %d abonné(s) éligible(s)",
-                interval_minutes,
+                "Alertes email : %d abonné(s) éligible(s)",
                 len(abonnes),
             )
 
@@ -440,8 +490,8 @@ class NotificationService:
                 if result.get("message_erreur"):
                     erreurs.append(str(result["message_erreur"]))
                 if result.get("nb_offres", 0) == 0:
-                    logger.debug(
-                        "Aucune nouvelle offre pour %s — email non envoyé",
+                    logger.info(
+                        "Aucune offre à envoyer pour %s",
                         abonne["email"],
                     )
                 else:

@@ -21,7 +21,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-neutral-200/60 bg-white/90 shadow-card backdrop-blur-sm",
+        "rounded-2xl border border-neutral-100 bg-white shadow-md",
         paddingStyles[padding],
         className
       )}

@@ -4,16 +4,25 @@ import { hasPrefsConfiguredForEmail, hasPrefsConfiguredInSession } from "./api/c
 import { useAuth } from "./context/AuthContext";
 import { MainLayout } from "./layouts/MainLayout";
 import { AuthLayout } from "./layouts/AuthLayout";
+import { PublicLayout } from "./layouts/PublicLayout";
 import { AdminPage } from "./pages/AdminPage";
-import { LoginPage, RegisterPage, VerifyEmailPage, ForgotPasswordPage, VerifyResetOtpPage, ResetPasswordPage, LinkGooglePage, LinkApplePage, ChangePasswordPage } from "./pages/AuthPages";
+import { LoginPage, RegisterPage, VerifyEmailOtpPage, ForgotPasswordPage, VerifyResetOtpPage, ResetPasswordPage, LinkGooglePage, LinkApplePage, ChangePasswordPage } from "./pages/AuthPages";
 import { HomePage } from "./pages/HomePage";
 import { CalendrierPage } from "./pages/CalendrierPage";
 import { OffreDetailPage } from "./pages/OffreDetailPage";
 import { MesPreferencesPage } from "./pages/MesPreferencesPage";
 import { MonComptePage } from "./pages/MonComptePage";
 import { StyleGuidePage } from "./pages/StyleGuidePage";
+import { ConditionsUtilisationPage } from "./pages/ConditionsUtilisationPage";
+import { LandingPage } from "./pages/LandingPage";
+import { AProposPage } from "./pages/AProposPage";
+import { ContactPage } from "./pages/ContactPage";
+import { PolitiqueConfidentialitePage } from "./pages/PolitiqueConfidentialitePage";
+import { MentionsLegalesPage } from "./pages/MentionsLegalesPage";
+import { DesabonnementPage } from "./pages/DesabonnementPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
-function RootRedirect() {
+function AuthenticatedRedirect() {
   const { isAuthenticated, isAdmin, loading, user, preferencesConfigured } = useAuth();
 
   if (loading) {
@@ -25,7 +34,7 @@ function RootRedirect() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/connexion" replace />;
+    return <LandingPage />;
   }
 
   if (user?.must_change_password) {
@@ -83,7 +92,17 @@ export default function App() {
   return (
     <Routes>
       <Route path="/style-guide" element={<DevOnlyStyleGuide />} />
-      <Route index element={<RootRedirect />} />
+
+      <Route element={<PublicLayout />}>
+        <Route index element={<AuthenticatedRedirect />} />
+        <Route path="a-propos" element={<AProposPage />} />
+        <Route path="contact" element={<ContactPage />} />
+        <Route path="conditions-utilisation" element={<ConditionsUtilisationPage />} />
+        <Route path="politique-de-confidentialite" element={<PolitiqueConfidentialitePage />} />
+        <Route path="mentions-legales" element={<MentionsLegalesPage />} />
+        <Route path="desabonnement" element={<DesabonnementPage />} />
+      </Route>
+
       <Route element={<AuthLayout />}>
         <Route
           path="connexion"
@@ -105,7 +124,7 @@ export default function App() {
           path="verification-email"
           element={
             <GuestOnlyRoute>
-              <VerifyEmailPage />
+              <VerifyEmailOtpPage />
             </GuestOnlyRoute>
           }
         />
@@ -162,6 +181,7 @@ export default function App() {
           }
         />
       </Route>
+
       <Route element={<MainLayout />}>
         <Route
           path="mes-preferences"
@@ -212,8 +232,9 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

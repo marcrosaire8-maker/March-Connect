@@ -1,11 +1,17 @@
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pymongo.errors import DuplicateKeyError
 
 from app.api.deps import CurrentUserDep, DbDep
-from app.api.schemas import AbonneCreateRequest, AbonneEmailRequest, AbonneResponse
+from app.api.schemas import (
+    AbonneCreateRequest,
+    AbonneEmailRequest,
+    AbonneResponse,
+    UnsubscribeEmailRequest,
+)
+from app.core.rate_limit import LIMIT_UNSUBSCRIBE, limiter
 from app.services.abonne_prefs import (
     abonne_has_active_preferences,
     abonne_preference_lists,
@@ -272,6 +278,31 @@ async def remove_abonne_email(
     )
     updated = await db.abonnes.find_one({"_id": abonne["_id"]})
     return AbonneResponse.from_mongo(updated)
+
+
+@router.post(
+    "/unsubscribe",
+    summary="Se désinscrire des alertes par e-mail (public)",
+)
+@limiter.limit(LIMIT_UNSUBSCRIBE)
+async def unsubscribe_by_email(
+    request: Request,
+    db: DbDep,
+    payload: UnsubscribeEmailRequest,
+) -> dict[str, str]:
+    email = payload.email.lower().strip()
+    await db.abonnes.update_many(
+        {
+            "$or": [{"email": email}, {"emails_supplementaires": email}],
+            "actif": True,
+        },
+        {"$set": {"actif": False}},
+    )
+    return {
+        "message": (
+            "Si cette adresse était inscrite aux alertes, elle a été désinscrite avec succès."
+        ),
+    }
 
 
 @router.delete(

@@ -5,6 +5,7 @@ const ENV_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 let cachedClientId: string | null = ENV_CLIENT_ID || null;
 let resolvePromise: Promise<string | null> | null = null;
 let scriptPromise: Promise<void> | null = null;
+let bootstrapPromise: Promise<string> | null = null;
 let initializedClientId: string | null = null;
 let credentialHandler: ((credential: string) => void) | null = null;
 
@@ -56,36 +57,62 @@ export function setGoogleCredentialHandler(handler: (credential: string) => void
   credentialHandler = handler;
 }
 
-export function ensureGoogleInitialized(clientId: string): void {
+function getGoogleIdApi(): GoogleIdApi {
   if (!window.google?.accounts?.id) {
     throw new Error("Script Google indisponible");
   }
+  return window.google.accounts.id;
+}
+
+/** Initialise GSI une seule fois par client_id (évite les warnings duplicate initialize). */
+export function bootstrapGoogle(clientId: string): Promise<string> {
   if (initializedClientId === clientId) {
-    return;
+    return Promise.resolve(clientId);
   }
-  window.google.accounts.id.initialize({
-    client_id: clientId,
-    callback: (response) => {
-      if (response.credential) {
-        credentialHandler?.(response.credential);
-      }
-    },
-    auto_select: false,
-    cancel_on_tap_outside: true,
+  if (bootstrapPromise) {
+    return bootstrapPromise;
+  }
+
+  bootstrapPromise = loadGoogleScript().then(() => {
+    const api = getGoogleIdApi();
+    if (initializedClientId && initializedClientId !== clientId) {
+      api.cancel();
+      initializedClientId = null;
+    }
+    if (initializedClientId !== clientId) {
+      api.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (response.credential) {
+            credentialHandler?.(response.credential);
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+      initializedClientId = clientId;
+    }
+    return clientId;
+  }).finally(() => {
+    bootstrapPromise = null;
   });
-  initializedClientId = clientId;
+
+  return bootstrapPromise;
+}
+
+/** @deprecated Utiliser bootstrapGoogle — conservé pour compatibilité interne. */
+export function ensureGoogleInitialized(clientId: string): void {
+  void bootstrapGoogle(clientId);
 }
 
 export function renderGoogleButton(
   container: HTMLElement,
   options?: { width?: number }
 ): void {
-  if (!window.google?.accounts?.id) {
-    throw new Error("Script Google indisponible");
-  }
+  const api = getGoogleIdApi();
   container.innerHTML = "";
   const width = Math.min(Math.max(options?.width ?? (container.offsetWidth || 360), 240), 400);
-  window.google.accounts.id.renderButton(container, {
+  api.renderButton(container, {
     type: "standard",
     theme: "outline",
     size: "large",
@@ -104,6 +131,19 @@ export function loadGoogleScript(): Promise<void> {
   }
 
   scriptPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]'
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Impossible de charger l'authentification Google")),
+        { once: true }
+      );
+      return;
+    }
+
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;

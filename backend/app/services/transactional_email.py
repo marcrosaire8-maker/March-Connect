@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import html
 import logging
+from datetime import datetime, timezone
+
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.db.config import settings
 from app.services.notification_interval import notification_interval_label
@@ -86,7 +90,7 @@ def send_email_verification_otp_email(to_email: str, otp: str) -> None:
     body = f"""
     <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:{TEXT};">
       Bienvenue sur MarchéConnect. Pour activer votre compte, saisissez le code
-      de vérification ci-dessous sur la page d'inscription.
+      de vérification ci-dessous sur la page d'activation.
     </p>
     <div style="text-align:center;margin:24px 0;">
       <div style="display:inline-block;background:{BRAND_LIGHT};border:2px dashed {BRAND};
@@ -176,8 +180,54 @@ def send_alerts_activated_email(to_email: str, criteria_label: str) -> None:
 def send_welcome_email_safe(to_email: str) -> None:
     try:
         send_welcome_email(to_email)
+        logger.info("Email de bienvenue envoyé à %s", to_email)
     except Exception as exc:
-        logger.warning("Email de bienvenue non envoyé à %s : %s", to_email, exc)
+        logger.error(
+            "Email de bienvenue non envoyé à %s : %s",
+            to_email,
+            exc,
+            exc_info=True,
+        )
+
+
+async def deliver_welcome_email_if_needed(
+    db: AsyncIOMotorDatabase,
+    *,
+    user_id: ObjectId,
+    email: str,
+) -> bool:
+    """Envoie l'email de bienvenue une seule fois par compte client vérifié."""
+    user = await db.utilisateurs.find_one(
+        {"_id": user_id},
+        {"welcome_email_sent_at": 1, "role": 1, "email_verifie": 1},
+    )
+    if not user:
+        return False
+    if not user.get("email_verifie", True):
+        return False
+    if user.get("role") == "admin":
+        return False
+    if user.get("welcome_email_sent_at"):
+        return False
+
+    normalized_email = email.strip().lower()
+    try:
+        send_welcome_email(normalized_email)
+    except Exception as exc:
+        logger.error(
+            "Email de bienvenue non envoyé à %s : %s",
+            normalized_email,
+            exc,
+            exc_info=True,
+        )
+        return False
+
+    await db.utilisateurs.update_one(
+        {"_id": user_id},
+        {"$set": {"welcome_email_sent_at": datetime.now(timezone.utc)}},
+    )
+    logger.info("Email de bienvenue envoyé à %s", normalized_email)
+    return True
 
 
 def send_alerts_activated_email_safe(to_email: str, criteria_label: str) -> None:

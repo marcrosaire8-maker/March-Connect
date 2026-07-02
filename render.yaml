@@ -40,10 +40,18 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
+      - key: SMTP_PORT
+        value: "587"
       - key: AUTOMATION_STARTUP_RUN
         value: "false"
+      - key: NOTIFICATION_INTERVAL_MINUTES
+        value: "15"
+      - key: NOTIFICATION_HOUR
+        value: "18"
+      - key: NOTIFICATION_MINUTE
+        value: "15"
+      - key: NOTIFICATION_MAX_OFFRES_PER_EMAIL
+        value: "1"
 
   - type: web
     name: marcheconnect-web

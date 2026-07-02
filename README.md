@@ -4,10 +4,14 @@ Plateforme de veille sur les appels d'offres en Afrique de l'Ouest.
 
 ## Structure
 
-- `backend/` — API FastAPI, MongoDB, scrapers, notifications
-- `frontend/` — React 19, Vite, TypeScript, Tailwind
+| Dossier | Rôle |
+|---------|------|
+| `backend/` | API FastAPI, MongoDB, scrapers, notifications, scheduler |
+| `frontend/` | React 19, Vite, TypeScript, Tailwind |
+| `docs/` | Guides Word (rapport final, configuration livraison) |
+| `render.yaml` | Blueprint déploiement Render (API + site statique) |
 
-## Démarrage rapide
+## Démarrage rapide (local)
 
 ```bash
 # Backend
@@ -15,79 +19,152 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # puis renseigner les variables
+cp .env.example .env   # renseigner les variables
 uvicorn main:app --reload --port 8000
 
-# Frontend
+# Frontend (autre terminal)
 cd frontend
 npm install
-cp .env.example .env   # optionnel
+cp .env.example .env   # optionnel en dev
 npm run dev
 ```
 
 - Application : http://localhost:5173
 - API : http://localhost:8000
+- Santé : http://localhost:8000/health
 
-## Configuration
+## Variables d'environnement
 
-Copiez les fichiers `.env.example` vers `.env` dans `backend/` et `frontend/`, puis renseignez au minimum :
+### Backend (`backend/.env`)
 
-- `MONGODB_URI`, `JWT_SECRET`
-- `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` pour l'authentification sociale
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `MONGODB_URI` | Oui | Chaîne MongoDB Atlas |
+| `MONGODB_DB_NAME` | Non | Nom de la base (défaut : `marches_publics_ouest`) |
+| `JWT_SECRET` | Oui | Secret long et aléatoire pour les jetons |
+| `ADMIN_EMAIL` | Oui | Email du compte administrateur initial |
+| `ADMIN_PASSWORD` | Oui | Mot de passe admin (8+ caractères, complexité) |
+| `FRONTEND_URL` | Oui | URL du frontend (CORS, liens email) |
+| `SMTP_HOST` | Oui* | Serveur SMTP (ex. `smtp-relay.brevo.com`) |
+| `SMTP_PORT` | Non | Port SMTP (défaut : 587) |
+| `SMTP_USER` | Oui* | Identifiant SMTP |
+| `SMTP_PASSWORD` | Oui* | Mot de passe / clé SMTP |
+| `SMTP_FROM` | Oui* | Expéditeur `Nom <email@domaine.com>` |
+| `GOOGLE_CLIENT_ID` | Recommandé | Client OAuth Google (Application Web) |
+| `APPLE_CLIENT_ID` | Optionnel | Services ID Apple Sign-In |
+| `NOTIFICATION_INTERVAL_MINUTES` | Non | Alertes email (défaut : 15) |
+| `NOTIFICATION_HOUR` / `NOTIFICATION_MINUTE` | Non | Ancrage horaire des alertes |
+| `SCRAPE_INTERVAL_MINUTES` | Non | Collecte offres (défaut : 30) |
+
+\* Requis pour les emails transactionnels (bienvenue, OTP, alertes).
+
+### Frontend (`frontend/.env`)
+
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `VITE_GOOGLE_CLIENT_ID` | Recommandé | Même valeur que `GOOGLE_CLIENT_ID` |
+| `VITE_APPLE_CLIENT_ID` | Optionnel | Même valeur que `APPLE_CLIENT_ID` |
+| `VITE_API_URL` | Prod seulement | URL API complète avec `/api` |
+
+> Les variables `VITE_*` sont compilées au build. Toute modification exige un rebuild du frontend.
+
+Modèle complet : `backend/.env.example`, `frontend/.env.example`.
+
+## Tests et CI
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) exécute les tests backend et le build frontend sur chaque push/PR vers `main`.
 
 ## Déploiement sur Render
 
-Le fichier `render.yaml` à la racine décrit deux services :
+### Services
 
 | Service | Type | Rôle |
 |---------|------|------|
-| `marcheconnect-api` | Web (Python) | API FastAPI |
+| `marcheconnect-api` | Web (Python) | API FastAPI + scheduler |
 | `marcheconnect-web` | Static Site | Frontend React |
 
-### Étapes
+### Procédure
 
-1. Poussez ce dépôt sur GitHub (`March-Connect`).
-2. Créez un compte sur [render.com](https://render.com).
-3. **New → Blueprint** → connectez le repo `marcrosaire8-maker/March-Connect`.
-4. Render détecte `render.yaml` et propose les 2 services.
-5. Renseignez les variables marquées **sync: false** :
-   - `MONGODB_URI` (MongoDB Atlas — autorisez `0.0.0.0/0` ou les IP Render)
-   - `ADMIN_EMAIL` / `ADMIN_PASSWORD`
-   - `GOOGLE_CLIENT_ID`, `APPLE_CLIENT_ID` (optionnel)
-   - SMTP ou `RESEND_API_KEY` pour les emails
-6. Cliquez **Apply** et attendez le déploiement (~5–10 min).
+1. Pousser le dépôt sur GitHub.
+2. Render → **New → Blueprint** → connecter le repo.
+3. Renseigner les variables `sync: false` (secrets) dans le dashboard.
+4. **Apply** et attendre le déploiement (~5–10 min).
+5. Vérifier :
+   - https://marcheconnect-api.onrender.com/health
+   - https://marcheconnect-web.onrender.com/connexion
 
-### URLs après déploiement
+### Variables Render — API (`marcheconnect-api`)
 
-- Frontend : `https://marcheconnect-web.onrender.com`
-- API : `https://marcheconnect-api.onrender.com`
-- Santé : `https://marcheconnect-api.onrender.com/health`
+`MONGODB_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `GOOGLE_CLIENT_ID`, `APPLE_CLIENT_ID`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
 
-### OAuth en production
+`FRONTEND_URL` est liée automatiquement à l'URL du site statique.
 
-#### Google Sign-In (obligatoire avant mise en ligne)
+### Variables Render — Frontend (`marcheconnect-web`)
 
-1. Ouvrez [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
-2. Sélectionnez votre **OAuth 2.0 Client ID** de type **Application Web** (le même que `GOOGLE_CLIENT_ID`).
-3. Dans **Origines JavaScript autorisées**, ajoutez **en plus** de localhost :
-   ```
-   https://marcheconnect-web.onrender.com
-   ```
-   (Remplacez par votre URL Render réelle ou domaine personnalisé.)
-4. Dans **URI de redirection autorisés**, ajoutez la même URL :
-   ```
-   https://marcheconnect-web.onrender.com
-   ```
-5. Sur **Render**, renseignez le **même** Client ID à deux endroits :
-   - Service `marcheconnect-api` → `GOOGLE_CLIENT_ID`
-   - Service `marcheconnect-web` → `VITE_GOOGLE_CLIENT_ID`
-6. Si l'écran de consentement OAuth est en mode **Test**, ajoutez les emails des testeurs dans [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
+`VITE_GOOGLE_CLIENT_ID` (identique au backend). `MARCHECONNECT_API_URL` est liée à l'API.
 
-Sans l'étape 3, Google renverra `origin_mismatch` et le bouton « Continuer avec Google » ne fonctionnera pas en production.
+Après toute modification de `VITE_*` : **Manual Deploy** du service web.
 
-#### Apple Sign-In
+### Google Sign-In en production
 
-### Plan gratuit Render
+Voir `docs/GOOGLE_PRODUCTION.md`. Checklist minimale :
+
+1. Origines JavaScript autorisées : `https://marcheconnect-web.onrender.com`
+2. URI de redirection : même URL
+3. `GOOGLE_CLIENT_ID` (API) = `VITE_GOOGLE_CLIENT_ID` (web)
+4. Écran de consentement OAuth en mode **Production** ou testeurs ajoutés
+
+### Emails en production (Brevo SMTP)
+
+Voir `docs/BREVO_SETUP.md`. Résumé :
+
+1. Compte Brevo + expéditeur vérifié (sans domaine custom possible pour les tests)
+2. Clé SMTP → variables `SMTP_*` sur Render
+3. Supprimer d'éventuelles variables `RESEND_*` restantes sur Render
+
+## Rollback en cas de problème
+
+### Frontend ou API (Render)
+
+1. Render → service concerné → **Deploys**.
+2. Sélectionner un déploiement précédent → **Rollback to this deploy**.
+
+### Base de données
+
+1. MongoDB Atlas → **Backup** (si activé) → restaurer un snapshot.
+2. Pour une purge accidentelle : utiliser les exports JSON de `backend/backups/` (script `purge_non_admin_users.py`).
+
+### Secrets compromis
+
+1. Régénérer `JWT_SECRET` sur Render → redéployer l'API (sessions invalidées).
+2. Changer `ADMIN_PASSWORD` + exécuter `python scripts/create_admin.py --reset-password`.
+3. Rotation mot de passe MongoDB Atlas + mise à jour `MONGODB_URI`.
+
+## Scripts utiles
+
+```bash
+# Créer / promouvoir un admin
+python scripts/create_admin.py --email admin@example.com --password "Motdepasse1!"
+
+# Purge des comptes (avec sécurité)
+python scripts/purge_non_admin_users.py --dry-run
+python scripts/purge_non_admin_users.py   # demande confirmation SUPPRIMER + backup JSON
+```
+
+## Plan gratuit Render
 
 - L'API s'endort après ~15 min d'inactivité (première requête lente).
-- Le scheduler tourne sur l'instance API ; pour une veille 24/7 fiable, passez au plan payant.
+- Le scheduler tourne sur l'instance API ; pour une veille 24/7 fiable, passer au plan payant.
+
+## Documentation complémentaire
+
+- `docs/Rapport_Final_MarcheConnect.docx` — historique de développement
+- `docs/Guide_Configuration_MarcheConnect.docx` — mise en service après livraison
+- `docs/GOOGLE_PRODUCTION.md` — checklist Google Sign-In
+- `docs/BREVO_SETUP.md` — configuration Brevo (avec ou sans domaine)

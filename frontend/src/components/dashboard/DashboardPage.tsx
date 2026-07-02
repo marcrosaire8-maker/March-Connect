@@ -3,11 +3,14 @@ import { cn } from "../../lib/cn";
 
 interface DashboardPageProps {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   /** Pleine hauteur : en-tête fixe, défilement géré par les colonnes enfants (page offres). */
   layout?: "default" | "fill";
+  /** Badge pill à la place du point vert de statut. */
+  badge?: string;
+  headerClassName?: string;
 }
 
 export function DashboardPage({
@@ -16,6 +19,8 @@ export function DashboardPage({
   action,
   children,
   layout = "default",
+  badge,
+  headerClassName,
 }: DashboardPageProps) {
   const isFill = layout === "fill";
 
@@ -28,13 +33,23 @@ export function DashboardPage({
           : "flex min-h-0 flex-1 flex-col overflow-y-auto"
       )}
     >
-      <header className={cn("dashboard-page-header", isFill && "shrink-0")}>
+      <header className={cn("dashboard-page-header", isFill && "shrink-0", headerClassName)}>
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="dashboard-page-title">{title}</h1>
-            <span className="dashboard-live-dot dashboard-live-dot-lg" title="Plateforme active" />
+            {badge ? (
+              <span className="inline-flex rounded-full border border-brand/25 bg-brand/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand">
+                {badge}
+              </span>
+            ) : (
+              <span className="dashboard-live-dot dashboard-live-dot-lg" title="Plateforme active" />
+            )}
           </div>
-          {subtitle && <p className="dashboard-page-subtitle">{subtitle}</p>}
+          {subtitle && (
+            <div className="dashboard-page-subtitle flex flex-wrap items-center gap-1.5">
+              {subtitle}
+            </div>
+          )}
         </div>
         {action}
       </header>

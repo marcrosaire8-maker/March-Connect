@@ -25,6 +25,16 @@ async def ensure_admin_user(db: AsyncIOMotorDatabase) -> None:
     email = settings.admin_email.lower()
     existing = await db.utilisateurs.find_one({"email": email})
     if existing:
+        now = datetime.now(timezone.utc)
+        updates: dict = {}
+        if existing.get("role") != UserRole.ADMIN.value:
+            updates["role"] = UserRole.ADMIN.value
+        if not existing.get("email_verifie"):
+            updates["email_verifie"] = True
+            updates["statut_email"] = "verifie"
+            updates["date_verification_email"] = now
+        if updates:
+            await db.utilisateurs.update_one({"_id": existing["_id"]}, {"$set": updates})
         return
 
     await db.utilisateurs.insert_one(

@@ -1,12 +1,30 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Card } from "../components";
+import {
+  Bell,
+  Globe,
+  Mail,
+  Save,
+  Send,
+  ShieldAlert,
+  Tags,
+  Trash2,
+  User,
+} from "lucide-react";
+import { Button } from "../components";
+import { ContentCard } from "../components/design/ContentCard";
+import { FormField } from "../components/design/FormField";
+import { SectionHeading } from "../components/design/SectionHeading";
+import { TogglePill } from "../components/design/TogglePill";
 import { DashboardPage } from "../components/dashboard/DashboardPage";
 import { useAuth } from "../context/AuthContext";
 import { abonnesApi, secteursApi, notificationsApi } from "../api";
 import type { Abonne, Secteur } from "../api/types";
+import { pageGradient } from "../lib/design";
 import { formatDate, PAYS_OPTIONS } from "../lib/format";
 import { NOTIFICATION_INTERVAL_LABEL } from "../lib/branding";
+import { fieldInput } from "../lib/design";
+import { cn } from "../lib/cn";
 
 export function MonComptePage() {
   const { user, loading: authLoading, deleteAccount, refreshUser, markPreferencesConfigured } = useAuth();
@@ -157,189 +175,195 @@ export function MonComptePage() {
   };
 
   return (
-    <DashboardPage
-      title="Mon compte"
-      subtitle={user?.email}
-    >
-      <Card className="mb-8">
-        <h2 className="mb-2 text-h3">Profil</h2>
-        <p className="text-body text-neutral-700">{user?.email}</p>
-        <p className="mt-1 text-body-sm text-neutral-500">
-          Inscrit le {formatDate(user?.date_inscription)}
-        </p>
-      </Card>
-
-      <Card className="mb-8 border-danger/30" padding="lg">
-        <h2 className="mb-2 text-h3 text-danger">Supprimer mon compte</h2>
-        <p className="mb-4 text-body-sm text-neutral-600">
-          Votre compte, vos sites suivis et vos alertes seront supprimés définitivement.
-        </p>
-        <form onSubmit={handleDeleteAccount} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label htmlFor="delete-password" className="mb-1 block text-body-sm font-medium">
-              Confirmez avec votre mot de passe
-            </label>
-            <input
-              id="delete-password"
-              type="password"
-              required
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-body"
-              disabled={deleteLoading}
-            />
-          </div>
-          <Button type="submit" variant="outline" loading={deleteLoading}>
-            Supprimer mon compte
-          </Button>
-        </form>
-        {deleteMsg && (
-          <p className="mt-2 text-body-sm text-danger" role="alert">
-            {deleteMsg}
-          </p>
-        )}
-      </Card>
-
-      <Card className="mb-8" padding="lg">
-        <h2 className="mb-2 text-h2">Secteurs et pays suivis</h2>
-        <p className="mb-4 text-body-sm text-neutral-600">
-          Ces choix définissent les offres visibles sur votre tableau de bord.
-        </p>
-
-        <form onSubmit={savePreferences} className="space-y-6">
-          <div>
-            <h3 className="mb-3 text-body font-semibold">Secteurs</h3>
-            <div className="flex flex-wrap gap-2">
-              {secteurs.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => toggleSecteur(s.id)}
-                  className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                    selectedSecteurs.includes(s.id)
-                      ? "border-brand bg-brand text-white"
-                      : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400"
-                  }`}
-                >
-                  {s.nom}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-3 text-body font-semibold">Pays</h3>
-            <div className="flex flex-wrap gap-2">
-              {PAYS_OPTIONS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => togglePays(p)}
-                  className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                    selectedPays.includes(p)
-                      ? "border-brand bg-brand text-white"
-                      : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-2 text-body font-semibold">Mots-clés d&apos;alerte</h3>
-            <p className="mb-2 text-body-sm text-neutral-600">
-              Optionnel — affinez les alertes (ex. : mobilier, SONEB, formation).
+    <div className={cn("min-h-0 flex-1", pageGradient)}>
+      <DashboardPage
+        title="Mon compte"
+        badge="Mon compte"
+        subtitle={user?.email}
+        headerClassName="mb-2"
+      >
+        <div className="mx-auto max-w-4xl space-y-6">
+          <ContentCard>
+            <SectionHeading icon={User} title="Profil" />
+            <p className="text-sm text-neutral-700">{user?.email}</p>
+            <p className="mt-1 text-sm text-neutral-500">
+              Inscrit le {formatDate(user?.date_inscription)}
             </p>
-            <input
-              type="text"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              placeholder="mot1, mot2, mot3"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-body"
+          </ContentCard>
+
+          <ContentCard variant="accent">
+            <form onSubmit={savePreferences} className="space-y-6">
+              <SectionHeading
+                icon={Tags}
+                title="Secteurs et pays suivis"
+                description="Ces choix définissent les offres visibles sur votre tableau de bord."
+              />
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-neutral-800">Secteurs</h3>
+                <div className="flex flex-wrap gap-2">
+                  {secteurs.map((s) => (
+                    <TogglePill
+                      key={s.id}
+                      label={s.nom}
+                      selected={selectedSecteurs.includes(s.id)}
+                      onClick={() => toggleSecteur(s.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-neutral-800">Pays</h3>
+                <div className="flex flex-wrap gap-2">
+                  {PAYS_OPTIONS.map((p) => (
+                    <TogglePill
+                      key={p}
+                      label={p}
+                      selected={selectedPays.includes(p)}
+                      onClick={() => togglePays(p)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-neutral-800">
+                  Mots-clés d&apos;alerte
+                </h3>
+                <p className="mb-2 text-sm text-neutral-600">
+                  Optionnel — affinez les alertes (ex. : mobilier, SONEB, formation).
+                </p>
+                <input
+                  type="text"
+                  value={keywords}
+                  onChange={(e) => setKeywords(e.target.value)}
+                  placeholder="mot1, mot2, mot3"
+                  className={fieldInput}
+                />
+              </div>
+
+              <Button type="submit" loading={savingPrefs} className="gap-2">
+                <Save className="size-4" strokeWidth={2} aria-hidden="true" />
+                Enregistrer les préférences
+              </Button>
+              {prefsMsg && (
+                <p className="text-sm text-neutral-600" role="status">
+                  {prefsMsg}
+                </p>
+              )}
+            </form>
+          </ContentCard>
+
+          <ContentCard>
+            <SectionHeading
+              icon={Bell}
+              title="Emails d'alerte"
+              description={`Alertes RSS automatiques ${NOTIFICATION_INTERVAL_LABEL}, selon vos secteurs, pays et mots-clés.`}
             />
-          </div>
 
-          <Button type="submit" loading={savingPrefs}>
-            Enregistrer les préférences
-          </Button>
-          {prefsMsg && (
-            <p className="text-body-sm text-neutral-600" role="status">
-              {prefsMsg}
-            </p>
-          )}
-        </form>
-      </Card>
-
-      <Card padding="lg">
-        <h2 className="mb-2 text-h2">Emails d&apos;alerte</h2>
-        <p className="mb-4 text-body-sm text-neutral-600">
-          Alertes RSS automatiques {NOTIFICATION_INTERVAL_LABEL}, selon vos secteurs, pays et mots-clés.
-        </p>
-
-        <Button
-          type="button"
-          variant="secondary"
-          loading={previewLoading}
-          onClick={() => void testAlerts()}
-          className="mb-4"
-        >
-          Tester mes alertes
-        </Button>
-        {previewMsg && (
-          <p className="mb-4 text-body-sm text-neutral-600" role="status">
-            {previewMsg}
-          </p>
-        )}
-
-        <ul className="mb-4 space-y-2">
-          <li className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-sm">
-            <span>{user?.email}</span>
-            <span className="text-xs text-neutral-500">Principal</span>
-          </li>
-          {(abonne?.emails_supplementaires ?? []).map((addr) => (
-            <li
-              key={addr}
-              className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-sm"
+            <Button
+              type="button"
+              variant="outline"
+              loading={previewLoading}
+              onClick={() => void testAlerts()}
+              className="mb-4 gap-2"
             >
-              <span>{addr}</span>
-              <button
-                type="button"
-                disabled={emailLoading}
-                onClick={() => removeEmail(addr)}
-                className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
-              >
-                Retirer
-              </button>
-            </li>
-          ))}
-        </ul>
+              <Send className="size-4" strokeWidth={2} aria-hidden="true" />
+              Tester mes alertes
+            </Button>
+            {previewMsg && (
+              <p className="mb-4 text-sm text-neutral-600" role="status">
+                {previewMsg}
+              </p>
+            )}
 
-        <form onSubmit={addEmail} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label htmlFor="new-email" className="mb-1 block text-body-sm font-medium">
-              Ajouter un email
-            </label>
-            <input
-              id="new-email"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-body"
-              disabled={emailLoading}
+            <ul className="mb-4 space-y-2">
+              <li className="flex items-center justify-between rounded-xl border border-neutral-100 bg-brand/5 px-3 py-2.5 text-sm">
+                <span className="flex items-center gap-2">
+                  <Mail className="size-4 text-brand" strokeWidth={2} aria-hidden="true" />
+                  {user?.email}
+                </span>
+                <span className="text-xs font-medium text-brand">Principal</span>
+              </li>
+              {(abonne?.emails_supplementaires ?? []).map((addr) => (
+                <li
+                  key={addr}
+                  className="flex items-center justify-between rounded-xl border border-neutral-100 bg-white px-3 py-2.5 text-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <Globe className="size-4 text-neutral-400" strokeWidth={2} aria-hidden="true" />
+                    {addr}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={emailLoading}
+                    onClick={() => void removeEmail(addr)}
+                    className="text-xs font-medium text-danger hover:underline disabled:opacity-50"
+                  >
+                    Retirer
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <form onSubmit={(e) => void addEmail(e)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <FormField
+                  id="new-email"
+                  label="Ajouter un email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={emailLoading}
+                  icon={Mail}
+                />
+              </div>
+              <Button type="submit" loading={emailLoading}>
+                Ajouter
+              </Button>
+            </form>
+            {emailMsg && (
+              <p className="mt-2 text-sm text-neutral-600" role="status">
+                {emailMsg}
+              </p>
+            )}
+          </ContentCard>
+
+          <ContentCard className="border-danger/20">
+            <SectionHeading
+              icon={ShieldAlert}
+              title="Supprimer mon compte"
+              description="Votre compte, vos sites suivis et vos alertes seront supprimés définitivement."
             />
-          </div>
-          <Button type="submit" loading={emailLoading}>
-            Ajouter
-          </Button>
-        </form>
-        {emailMsg && (
-          <p className="mt-2 text-body-sm text-neutral-600" role="status">
-            {emailMsg}
-          </p>
-        )}
-      </Card>
-    </DashboardPage>
+            <form
+              onSubmit={(e) => void handleDeleteAccount(e)}
+              className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+            >
+              <div className="min-w-0 flex-1">
+                <FormField
+                  id="delete-password"
+                  label="Confirmez avec votre mot de passe"
+                  type="password"
+                  required
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  disabled={deleteLoading}
+                />
+              </div>
+              <Button type="submit" variant="outline" loading={deleteLoading} className="gap-2 border-danger/40 text-danger hover:bg-danger/5">
+                <Trash2 className="size-4" strokeWidth={2} aria-hidden="true" />
+                Supprimer mon compte
+              </Button>
+            </form>
+            {deleteMsg && (
+              <p className="mt-2 text-sm text-danger" role="alert">
+                {deleteMsg}
+              </p>
+            )}
+          </ContentCard>
+        </div>
+      </DashboardPage>
+    </div>
   );
 }

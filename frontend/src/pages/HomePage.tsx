@@ -49,15 +49,28 @@ export function OffresList({ title = "Appels d'offres" }: OffresListProps) {
   const [error, setError] = useState<string | null>(null);
   const [abonneLoaded, setAbonneLoaded] = useState(false);
 
+  const hasConfiguredPrefs = abonneHasActivePrefs(abonne);
+
   const loadSecteurs = useCallback(async () => {
-    const data = await secteursApi.list();
+    if (!hasConfiguredPrefs) {
+      setSecteurs([]);
+      setSecteurMap({});
+      return;
+    }
+    const data = await secteursApi.list({
+      pays: pays || undefined,
+      date_limite_apres: dateLimite || undefined,
+      q: search.trim() || undefined,
+      favoris_only: favorisOnly,
+      mes_sites_only: mesSitesOnly,
+    });
     setSecteurs(data);
     const map: Record<string, string> = {};
     data.forEach((s) => {
       map[s.id] = s.nom;
     });
     setSecteurMap(map);
-  }, []);
+  }, [hasConfiguredPrefs, pays, dateLimite, search, favorisOnly, mesSitesOnly]);
 
   const loadAbonne = useCallback(async () => {
     if (!isAuthenticated) {
@@ -73,8 +86,6 @@ export function OffresList({ title = "Appels d'offres" }: OffresListProps) {
       setAbonneLoaded(true);
     }
   }, [isAuthenticated]);
-
-  const hasConfiguredPrefs = abonneHasActivePrefs(abonne);
 
   const loadOffres = useCallback(async () => {
     if (!hasConfiguredPrefs) {
@@ -144,10 +155,10 @@ export function OffresList({ title = "Appels d'offres" }: OffresListProps) {
   };
 
   useEffect(() => {
-    if (!abonneLoaded) return;
+    if (!abonneLoaded || authLoading) return;
     void loadSecteurs();
     void loadFavoris();
-  }, [abonneLoaded, loadSecteurs, loadFavoris]);
+  }, [abonneLoaded, authLoading, loadSecteurs, loadFavoris]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -222,6 +233,7 @@ export function OffresList({ title = "Appels d'offres" }: OffresListProps) {
     <DashboardPage
       layout="fill"
       title={title}
+      badge="Vos offres"
       subtitle="Offres limitées aux secteurs et pays choisis dans Mon compte"
     >
       <div className="dashboard-offres-toolbar shrink-0 space-y-6">

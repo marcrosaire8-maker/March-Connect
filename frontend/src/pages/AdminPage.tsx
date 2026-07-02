@@ -135,7 +135,8 @@ export function AdminPage() {
   ];
 
   return (
-    <DashboardPage title="Administration" subtitle="Gestion de la plateforme">
+    <div className="min-h-0 flex-1 bg-gradient-to-b from-white via-surface to-brand-muted/40">
+    <DashboardPage title="Administration" badge="Administration" subtitle="Gestion de la plateforme">
       <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -390,5 +391,6 @@ export function AdminPage() {
         </>
       )}
     </DashboardPage>
+    </div>
   );
 }

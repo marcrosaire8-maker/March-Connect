@@ -87,6 +87,8 @@ class CalendrierOffreItem(BaseModel):
     organisme: str
     pays: str
     date_limite: datetime
+    secteur_id: Optional[str] = None
+    secteur_nom: Optional[str] = None
 
 
 class CalendrierJourResponse(BaseModel):
@@ -277,6 +279,10 @@ class AbonneResponse(BaseModel):
 
 
 class AbonneEmailRequest(BaseModel):
+    email: EmailStr
+
+
+class UnsubscribeEmailRequest(BaseModel):
     email: EmailStr
 
 

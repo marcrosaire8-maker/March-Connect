@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pymongo.errors import DuplicateKeyError
 
 from app.api.deps import CurrentUserDep, DbDep
@@ -10,6 +10,9 @@ from app.api.schemas import (
     DeleteAccountRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    RegisterResponse,
+    ResendEmailVerificationRequest,
+    VerifyEmailOtpRequest,
     AppleAuthRequest,
     AppleAuthResponse,
     AppleConfigResponse,
@@ -21,13 +24,10 @@ from app.api.schemas import (
     LoginRequest,
     MessageResponse,
     RegisterRequest,
-    RegisterResponse,
-    ResendEmailVerificationRequest,
     ResendResetOtpRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserResponse,
-    VerifyEmailOtpRequest,
     VerifyResetOtpRequest,
     VerifyResetOtpResponse,
 )
@@ -36,6 +36,16 @@ from app.core.security import (
     hash_password,
     validate_password_strength,
     verify_password,
+)
+from app.core.rate_limit import (
+    LIMIT_FORGOT_PASSWORD,
+    LIMIT_LOGIN,
+    LIMIT_OAUTH,
+    LIMIT_REGISTER,
+    LIMIT_RESEND_OTP,
+    LIMIT_RESET_PASSWORD,
+    LIMIT_VERIFY_OTP,
+    limiter,
 )
 from app.db.config import settings
 from app.models.enums import AuthProvider, EmailVerificationStatus, UserRole
@@ -67,7 +77,7 @@ from app.services.password_reset import (
     reset_password_with_token,
     verify_password_reset_otp,
 )
-from app.services.transactional_email import send_welcome_email_safe
+from app.services.transactional_email import deliver_welcome_email_if_needed
 from app.services.user_cleanup import delete_user_and_data
 
 logger = logging.getLogger(__name__)
@@ -78,12 +88,12 @@ FORGOT_PASSWORD_SENT_MESSAGE = (
     "Un code de vérification a été envoyé à votre adresse email. "
     "Consultez votre boîte mail."
 )
-PASSWORD_RESET_SUCCESS_MESSAGE = (
-    "Votre mot de passe a été modifié avec succès. Vous pouvez vous connecter."
-)
-EMAIL_VERIFICATION_SENT_MESSAGE = (
+REGISTER_VERIFICATION_SENT_MESSAGE = (
     "Un code de vérification a été envoyé à votre adresse email. "
     "Consultez votre boîte mail pour activer votre compte."
+)
+PASSWORD_RESET_SUCCESS_MESSAGE = (
+    "Votre mot de passe a été modifié avec succès. Vous pouvez vous connecter."
 )
 
 
@@ -93,7 +103,8 @@ EMAIL_VERIFICATION_SENT_MESSAGE = (
     status_code=status.HTTP_201_CREATED,
     summary="Créer un compte client",
 )
-async def register(payload: RegisterRequest, db: DbDep) -> RegisterResponse:
+@limiter.limit(LIMIT_REGISTER)
+async def register(request: Request, payload: RegisterRequest, db: DbDep) -> RegisterResponse:
     email = str(payload.email).lower()
     now = datetime.now(timezone.utc)
     doc: dict = {
@@ -102,7 +113,7 @@ async def register(payload: RegisterRequest, db: DbDep) -> RegisterResponse:
         "role": UserRole.CLIENT.value,
         "auth_provider": AuthProvider.EMAIL.value,
         "email_verifie": False,
-        "statut_email": EmailVerificationStatus.EN_ATTENTE.value,
+        "statut_email": EmailVerificationStatus.NON_VERIFIE.value,
         "date_inscription": now,
         "must_change_password": False,
     }
@@ -118,18 +129,34 @@ async def register(payload: RegisterRequest, db: DbDep) -> RegisterResponse:
             detail="Un compte existe déjà avec cet email",
         ) from None
 
-    await ensure_abonne_linked_to_user(db, result.inserted_id, email)
-    await send_email_verification_otp(db, email)
+    user_id = result.inserted_id
+    await ensure_abonne_linked_to_user(db, user_id, email)
+    try:
+        await send_email_verification_otp(db, email)
+    except HTTPException:
+        await db.utilisateurs.delete_one({"_id": user_id})
+        raise
+    except Exception as exc:
+        await db.utilisateurs.delete_one({"_id": user_id})
+        logger.error("Échec envoi OTP inscription pour %s : %s", email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Impossible d'envoyer l'email de vérification pour le moment. "
+                "Réessayez dans quelques minutes."
+            ),
+        ) from exc
 
     return RegisterResponse(
-        status="verification_required",
+        status="pending_verification",
         email=email,
-        message=EMAIL_VERIFICATION_SENT_MESSAGE,
+        message=REGISTER_VERIFICATION_SENT_MESSAGE,
     )
 
 
 @router.post("/login", response_model=TokenResponse, summary="Connexion")
-async def login(payload: LoginRequest, db: DbDep) -> TokenResponse:
+@limiter.limit(LIMIT_LOGIN)
+async def login(request: Request, payload: LoginRequest, db: DbDep) -> TokenResponse:
     email = str(payload.email).strip().lower()
     user = await db.utilisateurs.find_one({"email": email})
     if not user:
@@ -154,6 +181,13 @@ async def login(payload: LoginRequest, db: DbDep) -> TokenResponse:
     ensure_login_email_verified(user)
 
     await ensure_abonne_linked_to_user(db, user["_id"], email)
+    try:
+        await deliver_welcome_email_if_needed(db, user_id=user["_id"], email=email)
+    except Exception:
+        logger.exception(
+            "Connexion réussie mais email de bienvenue non envoyé pour %s",
+            email,
+        )
 
     token = create_access_token(
         str(user["_id"]),
@@ -181,7 +215,10 @@ async def google_config() -> GoogleConfigResponse:
     response_model=GoogleAuthResponse,
     summary="Connexion ou inscription avec Google",
 )
-async def google_auth(payload: GoogleAuthRequest, db: DbDep) -> GoogleAuthResponse:
+@limiter.limit(LIMIT_OAUTH)
+async def google_auth(
+    request: Request, payload: GoogleAuthRequest, db: DbDep
+) -> GoogleAuthResponse:
     try:
         result = await authenticate_with_google(db, payload.credential)
     except GoogleAuthError as exc:
@@ -234,7 +271,10 @@ async def apple_config() -> AppleConfigResponse:
     response_model=AppleAuthResponse,
     summary="Connexion ou inscription avec Apple",
 )
-async def apple_auth(payload: AppleAuthRequest, db: DbDep) -> AppleAuthResponse:
+@limiter.limit(LIMIT_OAUTH)
+async def apple_auth(
+    request: Request, payload: AppleAuthRequest, db: DbDep
+) -> AppleAuthResponse:
     try:
         result = await authenticate_with_apple(
             db,
@@ -274,28 +314,42 @@ async def apple_link(payload: AppleLinkRequest, db: DbDep) -> TokenResponse:
 
 
 @router.post(
-    "/verify-email-otp",
+    "/verify-email",
     response_model=TokenResponse,
-    summary="Vérifier l'adresse email avec le code OTP",
+    summary="Vérifier l'adresse email après inscription",
 )
-async def verify_email(payload: VerifyEmailOtpRequest, db: DbDep) -> TokenResponse:
+@limiter.limit(LIMIT_VERIFY_OTP)
+async def verify_email(
+    request: Request, payload: VerifyEmailOtpRequest, db: DbDep
+) -> TokenResponse:
     email = str(payload.email).lower()
     access_token = await verify_email_otp(db, email, payload.code)
-    send_welcome_email_safe(email)
+    user = await db.utilisateurs.find_one({"email": email})
+    if user:
+        try:
+            await deliver_welcome_email_if_needed(
+                db, user_id=user["_id"], email=email
+            )
+        except Exception:
+            logger.exception(
+                "Email vérifié mais bienvenue non envoyée pour %s",
+                email,
+            )
     return TokenResponse(access_token=access_token)
 
 
 @router.post(
     "/resend-email-verification",
-    response_model=ForgotPasswordResponse,
-    summary="Renvoyer le code de vérification email",
+    response_model=MessageResponse,
+    summary="Renvoyer le code OTP de vérification d'email",
 )
+@limiter.limit(LIMIT_RESEND_OTP)
 async def resend_email_verification(
-    payload: ResendEmailVerificationRequest, db: DbDep
-) -> ForgotPasswordResponse:
+    request: Request, payload: ResendEmailVerificationRequest, db: DbDep
+) -> MessageResponse:
     email = str(payload.email).lower()
     await resend_email_verification_otp(db, email)
-    return ForgotPasswordResponse(message=EMAIL_VERIFICATION_SENT_MESSAGE)
+    return MessageResponse(message=REGISTER_VERIFICATION_SENT_MESSAGE)
 
 
 @router.post(
@@ -303,7 +357,10 @@ async def resend_email_verification(
     response_model=ForgotPasswordResponse,
     summary="Recevoir un code OTP par email",
 )
-async def forgot_password(payload: ForgotPasswordRequest, db: DbDep) -> ForgotPasswordResponse:
+@limiter.limit(LIMIT_FORGOT_PASSWORD)
+async def forgot_password(
+    request: Request, payload: ForgotPasswordRequest, db: DbDep
+) -> ForgotPasswordResponse:
     email = str(payload.email).lower()
     await request_password_reset_otp(db, email)
     return ForgotPasswordResponse(message=FORGOT_PASSWORD_SENT_MESSAGE)
@@ -314,8 +371,9 @@ async def forgot_password(payload: ForgotPasswordRequest, db: DbDep) -> ForgotPa
     response_model=VerifyResetOtpResponse,
     summary="Vérifier le code OTP de réinitialisation",
 )
+@limiter.limit(LIMIT_VERIFY_OTP)
 async def verify_reset_otp(
-    payload: VerifyResetOtpRequest, db: DbDep
+    request: Request, payload: VerifyResetOtpRequest, db: DbDep
 ) -> VerifyResetOtpResponse:
     email = str(payload.email).lower()
     reset_token = await verify_password_reset_otp(db, email, payload.code)
@@ -327,8 +385,9 @@ async def verify_reset_otp(
     response_model=ForgotPasswordResponse,
     summary="Renvoyer le code OTP de réinitialisation",
 )
+@limiter.limit(LIMIT_RESEND_OTP)
 async def resend_reset_otp(
-    payload: ResendResetOtpRequest, db: DbDep
+    request: Request, payload: ResendResetOtpRequest, db: DbDep
 ) -> ForgotPasswordResponse:
     email = str(payload.email).lower()
     await resend_password_reset_otp(db, email)
@@ -340,7 +399,10 @@ async def resend_reset_otp(
     response_model=MessageResponse,
     summary="Définir un nouveau mot de passe après vérification OTP",
 )
-async def reset_password(payload: ResetPasswordRequest, db: DbDep) -> MessageResponse:
+@limiter.limit(LIMIT_RESET_PASSWORD)
+async def reset_password(
+    request: Request, payload: ResetPasswordRequest, db: DbDep
+) -> MessageResponse:
     await reset_password_with_token(
         db,
         payload.token,

@@ -83,7 +83,7 @@ export function NotificationEmailsPanel({ embedded = false }: { embedded?: boole
         <>
           <h2 className="mb-1 text-base font-semibold text-neutral-900">Alertes email</h2>
           <p className="mb-4 text-sm text-neutral-500">
-            Alertes RSS automatiques {NOTIFICATION_INTERVAL_LABEL} : nouvelles offres selon vos
+            Alertes automatiques {NOTIFICATION_INTERVAL_LABEL} : offres encore ouvertes selon vos
             secteurs et pays (Mon compte).
           </p>
         </>

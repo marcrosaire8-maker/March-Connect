@@ -76,13 +76,13 @@ export function StyleGuidePage() {
           description="Tokens définis dans tailwind.config.js — ne pas coder de couleurs en dur ailleurs."
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <ColorSwatch name="Primaire marine" token="primary-dark" hex="#0F1E3D" />
-            <ColorSwatch name="Primaire indigo" token="primary" hex="#1E3A8A" />
+            <ColorSwatch name="Marque principale" token="brand" hex="#1E9E5C" />
+            <ColorSwatch name="Marque foncée" token="brand-dark" hex="#187A49" />
             <ColorSwatch name="Accent ambre" token="accent" hex="#D97706" textClass="text-primary-dark" />
             <ColorSwatch name="Accent doré" token="accent-light" hex="#F59E0B" textClass="text-primary-dark" />
             <ColorSwatch name="Fond général" token="surface" hex="#FAFAF9" textClass="text-neutral-700" />
             <ColorSwatch name="Texte secondaire" token="neutral-500" hex="#78716C" />
-            <ColorSwatch name="Succès" token="success" hex="#059669" />
+            <ColorSwatch name="Succès" token="success" hex="#1E9E5C" />
             <ColorSwatch name="Danger" token="danger" hex="#DC2626" />
           </div>
         </Section>

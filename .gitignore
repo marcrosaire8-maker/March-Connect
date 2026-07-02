@@ -31,3 +31,4 @@ dist-ssr/
 .cache/
 coverage/
 htmlcov/
+backend/backups/

@@ -50,7 +50,7 @@ def _empty_page(page: int, page_size: int) -> PaginatedOffresResponse:
     )
 
 
-async def _build_user_query(
+async def build_offres_query(
     db,
     user,
     *,
@@ -144,7 +144,7 @@ async def list_offres(
     parsed_secteur = _parse_optional_object_id(secteur_id, "secteur_id")
     parsed_source = _parse_optional_object_id(source_id, "source_id")
 
-    query = await _build_user_query(
+    query = await build_offres_query(
         db,
         user,
         secteur_id=parsed_secteur,
@@ -188,7 +188,7 @@ async def calendrier_offres(
     last_day = calendar.monthrange(year, month)[1]
     end = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
 
-    query = await _build_user_query(
+    query = await build_offres_query(
         db,
         user,
         secteur_id=None,
@@ -215,8 +215,24 @@ async def calendrier_offres(
             "organisme": 1,
             "pays": 1,
             "date_limite": 1,
+            "secteur_id": 1,
         },
     ).sort("date_limite", 1).to_list(length=500)
+
+    secteur_ids = list(
+        {
+            doc["secteur_id"]
+            for doc in docs
+            if doc.get("secteur_id") is not None
+        }
+    )
+    secteur_map: dict[ObjectId, str] = {}
+    if secteur_ids:
+        async for secteur in db.secteurs.find(
+            {"_id": {"$in": secteur_ids}},
+            {"nom": 1},
+        ):
+            secteur_map[secteur["_id"]] = secteur.get("nom", "")
 
     grouped: dict[str, list[CalendrierOffreItem]] = {}
     for doc in docs:
@@ -224,6 +240,7 @@ async def calendrier_offres(
         if not isinstance(date_limite, datetime):
             continue
         key = date_limite.astimezone(timezone.utc).strftime("%Y-%m-%d")
+        secteur_oid = doc.get("secteur_id")
         grouped.setdefault(key, []).append(
             CalendrierOffreItem(
                 id=str(doc["_id"]),
@@ -231,6 +248,8 @@ async def calendrier_offres(
                 organisme=doc.get("organisme", ""),
                 pays=doc.get("pays", ""),
                 date_limite=date_limite,
+                secteur_id=str(secteur_oid) if secteur_oid else None,
+                secteur_nom=secteur_map.get(secteur_oid) if secteur_oid else None,
             )
         )
 

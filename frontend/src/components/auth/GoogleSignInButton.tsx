@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AuthStagger } from "./AuthSplitLayout";
 import {
-  ensureGoogleInitialized,
-  loadGoogleScript,
+  bootstrapGoogle,
   renderGoogleButton,
   resolveGoogleClientId,
   setGoogleCredentialHandler,
@@ -12,6 +11,7 @@ import { AppleSignInButton } from "./AppleSignInButton";
 interface GoogleSignInButtonProps {
   stagger?: number;
   disabled?: boolean;
+  loading?: boolean;
   onSuccess: (credential: string) => void;
   onError?: (message: string) => void;
 }
@@ -44,13 +44,15 @@ type ButtonState = "loading" | "unconfigured" | "ready";
 export function GoogleSignInButton({
   stagger = 6,
   disabled = false,
+  loading = false,
   onSuccess,
   onError,
 }: GoogleSignInButtonProps) {
   const onSuccessRef = useRef(onSuccess);
   const onErrorRef = useRef(onError);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const renderedRef = useRef(false);
   const [clientId, setClientId] = useState<string | null>(null);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [state, setState] = useState<ButtonState>("loading");
 
   onSuccessRef.current = onSuccess;
@@ -94,20 +96,20 @@ export function GoogleSignInButton({
   }, [disabled]);
 
   useEffect(() => {
-    if (!clientId || disabled || !container) {
+    if (!clientId || disabled) {
       return;
     }
 
     let cancelled = false;
 
-    loadGoogleScript()
+    bootstrapGoogle(clientId)
       .then(() => {
-        if (cancelled) return;
-        ensureGoogleInitialized(clientId);
-        renderGoogleButton(container);
-        if (!cancelled) {
-          setState("ready");
+        if (cancelled || !containerRef.current) return;
+        if (!renderedRef.current) {
+          renderGoogleButton(containerRef.current);
+          renderedRef.current = true;
         }
+        setState("ready");
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -121,8 +123,9 @@ export function GoogleSignInButton({
 
     return () => {
       cancelled = true;
+      renderedRef.current = false;
     };
-  }, [clientId, container, disabled]);
+  }, [clientId, disabled]);
 
   if (state === "unconfigured") {
     return (
@@ -138,16 +141,16 @@ export function GoogleSignInButton({
   return (
     <AuthStagger index={stagger}>
       <div className="w-full">
-        {state === "loading" && (
+        {(state === "loading" || loading) && (
           <button type="button" className="auth-social-btn w-full" disabled>
             <GoogleIcon />
-            Chargement Google…
+            {loading ? "Connexion Google…" : "Chargement Google…"}
           </button>
         )}
         <div
-          ref={setContainer}
+          ref={containerRef}
           className={`flex min-h-[44px] w-full items-center justify-center ${
-            state === "ready" ? "" : "sr-only"
+            state === "ready" && !loading ? "" : "sr-only"
           }`}
           aria-label="Continuer avec Google"
         />
@@ -180,6 +183,7 @@ export function AuthSocialButtons({
       <GoogleSignInButton
         stagger={stagger}
         disabled={googleDisabled}
+        loading={socialLoading}
         onSuccess={onGoogleSuccess}
         onError={onGoogleError}
       />

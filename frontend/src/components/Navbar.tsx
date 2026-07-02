@@ -45,7 +45,7 @@ export function Navbar({ user = null, onLogout }: NavbarProps) {
         { to: "/mon-compte", label: "Mon compte" },
       ];
 
-  const homeLink = isGuest ? "/connexion" : isAdmin ? "/admin" : "/offres";
+  const homeLink = isGuest ? "/" : isAdmin ? "/admin" : "/offres";
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary-dark/20 bg-primary-dark text-primary-foreground">

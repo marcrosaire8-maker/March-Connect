@@ -73,7 +73,14 @@ export function DashboardSidebar({
                 active && "dashboard-nav-item-active"
               )}
             >
-              <Icon className="size-5 shrink-0" />
+              <span
+                className={cn(
+                  "dashboard-nav-icon",
+                  active && "dashboard-nav-icon-active"
+                )}
+              >
+                <Icon className="size-[1.125rem]" />
+              </span>
               <span>{item.label}</span>
             </Link>
           );
@@ -88,9 +95,11 @@ export function DashboardSidebar({
             onLogout();
             navigate("/connexion", { replace: true });
           }}
-          className="dashboard-nav-item w-full text-neutral-500 hover:text-neutral-800"
+          className="dashboard-nav-item w-full text-neutral-500 hover:text-brand-dark"
         >
-          <IconLogout className="size-5 shrink-0" />
+          <span className="dashboard-nav-icon">
+            <IconLogout className="size-[1.125rem]" />
+          </span>
           <span>Déconnexion</span>
         </button>
       </div>

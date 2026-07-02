@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -84,7 +84,22 @@ def _scrape_and_classify_job() -> None:
     except Exception as exc:
         logger.error("Erreur classification : %s", exc, exc_info=True)
 
-    _notifications_job()
+
+def _next_notification_run(tz: ZoneInfo) -> datetime:
+    """Prochaine exécution alignée sur NOTIFICATION_HOUR:MINUTE puis l'intervalle."""
+    now = datetime.now(tz)
+    interval = max(1, settings.notification_interval_minutes)
+    anchor = now.replace(
+        hour=settings.notification_hour,
+        minute=settings.notification_minute,
+        second=0,
+        microsecond=0,
+    )
+    if now <= anchor:
+        return anchor
+    elapsed_minutes = (now - anchor).total_seconds() / 60
+    slot = int(elapsed_minutes // interval) + 1
+    return anchor + timedelta(minutes=slot * interval)
 
 
 def _add_scrape_job(scheduler: BackgroundScheduler, *, interval_minutes: int) -> None:
@@ -102,6 +117,8 @@ def _add_scrape_job(scheduler: BackgroundScheduler, *, interval_minutes: int) ->
 
 
 def _add_notifications_job(scheduler: BackgroundScheduler, *, interval_minutes: int) -> None:
+    tz = ZoneInfo(settings.scheduler_timezone)
+    first_run = _next_notification_run(tz)
     scheduler.add_job(
         _notifications_job,
         trigger=IntervalTrigger(minutes=max(1, interval_minutes)),
@@ -109,6 +126,14 @@ def _add_notifications_job(scheduler: BackgroundScheduler, *, interval_minutes: 
         replace_existing=True,
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=300,
+        next_run_time=first_run,
+    )
+    logger.info(
+        "Premier envoi d'alertes programmé à %s (%s), puis toutes les %d min",
+        first_run.strftime("%H:%M"),
+        settings.scheduler_timezone,
+        interval_minutes,
     )
     scheduler.add_job(
         _deadline_reminders_job,
@@ -123,7 +148,7 @@ def _add_notifications_job(scheduler: BackgroundScheduler, *, interval_minutes: 
 def start_scheduler() -> BackgroundScheduler:
     global _scheduler
     if _scheduler is not None:
-        return _scheduler
+        stop_scheduler()
 
     tz = ZoneInfo(settings.scheduler_timezone)
     _scheduler = BackgroundScheduler(timezone=tz)

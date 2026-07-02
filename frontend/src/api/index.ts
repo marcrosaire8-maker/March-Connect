@@ -11,12 +11,12 @@ import type {
   Offre,
   OffresFilters,
   PaginatedOffres,
-  RegisterResponse,
   Secteur,
   Source,
   SourceCreatePayload,
   SuiviSite,
   TokenResponse,
+  RegisterResponse,
   User,
 } from "./types";
 
@@ -34,18 +34,6 @@ export const authApi = {
         prenom: options?.prenom,
         nom: options?.nom,
       }),
-    }),
-
-  verifyEmailOtp: (email: string, code: string) =>
-    apiFetch<TokenResponse>("/auth/verify-email-otp", {
-      method: "POST",
-      body: JSON.stringify({ email, code }),
-    }),
-
-  resendEmailVerification: (email: string) =>
-    apiFetch<{ message: string }>("/auth/resend-email-verification", {
-      method: "POST",
-      body: JSON.stringify({ email }),
     }),
 
   login: (email: string, password: string) =>
@@ -105,6 +93,18 @@ export const authApi = {
       body: JSON.stringify({ email }),
     }),
 
+  verifyEmail: (email: string, code: string) =>
+    apiFetch<TokenResponse>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
+
+  resendEmailVerification: (email: string) =>
+    apiFetch<{ message: string }>("/auth/resend-email-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
   resetPassword: (token: string, password: string, confirm_password: string) =>
     apiFetch<{ message: string }>("/auth/reset-password", {
       method: "POST",
@@ -157,7 +157,18 @@ export const offresApi = {
 };
 
 export const secteursApi = {
-  list: () => apiFetch<Secteur[]>("/secteurs"),
+  list: (filters: Omit<OffresFilters, "page" | "page_size" | "secteur_id"> = {}) => {
+    const params = new URLSearchParams();
+    if (filters.pays) params.set("pays", filters.pays);
+    if (filters.date_limite_apres) {
+      params.set("date_limite_apres", filters.date_limite_apres);
+    }
+    if (filters.q) params.set("q", filters.q);
+    if (filters.favoris_only) params.set("favoris_only", "true");
+    if (filters.mes_sites_only) params.set("mes_sites_only", "true");
+    const qs = params.toString();
+    return apiFetch<Secteur[]>(`/secteurs${qs ? `?${qs}` : ""}`, {}, true);
+  },
 };
 
 export const abonnesApi = {
@@ -195,6 +206,15 @@ export const abonnesApi = {
       { method: "DELETE" },
       true
     ),
+
+  unsubscribe: (abonneId: string) =>
+    apiFetch<void>(`/abonnes/${abonneId}`, { method: "DELETE" }, true),
+
+  unsubscribeByEmail: (email: string) =>
+    apiFetch<{ message: string }>("/abonnes/unsubscribe", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
 };
 
 export const suivisSitesApi = {

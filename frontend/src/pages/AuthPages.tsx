@@ -6,6 +6,7 @@ import {
   AuthField,
   AuthSplitLayout,
   AuthStagger,
+  AuthStatusMessage,
   AuthSubmitButton,
 } from "../components/auth/AuthSplitLayout";
 import { AuthSocialButtons } from "../components/auth/GoogleSignInButton";
@@ -16,22 +17,47 @@ import { redirectAfterAuth } from "../lib/authRedirect";
 import { PASSWORD_HINT, validatePassword } from "../lib/password";
 
 const RESEND_COOLDOWN_SECONDS = 60;
+const SUCCESS_REDIRECT_DELAY_MS = 700;
 
-function useSocialAuthHandler(from = "/offres") {
+function pause(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function useSocialAuthHandler(from = "/offres", mode: "login" | "register" = "login") {
   const { loginWithGoogle, loginWithApple } = useAuth();
   const navigate = useNavigate();
   const [socialLoading, setSocialLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [appleError, setAppleError] = useState<string | null>(null);
+  const [socialStatusMessage, setSocialStatusMessage] = useState<string | null>(null);
+  const [socialStatusVariant, setSocialStatusVariant] = useState<"info" | "success">("info");
+
+  const progressLabel =
+    mode === "register" ? "Inscription en cours avec Google…" : "Connexion Google en cours…";
+  const successLabel =
+    mode === "register"
+      ? "Inscription réussie avec Google ! Redirection vers votre espace…"
+      : "Connexion réussie avec Google ! Redirection vers votre espace…";
+  const appleProgressLabel =
+    mode === "register" ? "Inscription en cours avec Apple…" : "Connexion Apple en cours…";
+  const appleSuccessLabel =
+    mode === "register"
+      ? "Inscription réussie avec Apple ! Redirection vers votre espace…"
+      : "Connexion réussie avec Apple ! Redirection vers votre espace…";
 
   const handleGoogleSuccess = useCallback(
     async (credential: string) => {
       setSocialLoading(true);
       setGoogleError(null);
       setAppleError(null);
+      setSocialStatusVariant("info");
+      setSocialStatusMessage(progressLabel);
       try {
         const result = await loginWithGoogle(credential);
         if (result.status === "link_required") {
+          setSocialStatusMessage(null);
           navigate("/associer-google", {
             replace: true,
             state: {
@@ -43,9 +69,13 @@ function useSocialAuthHandler(from = "/offres") {
           return;
         }
         if (result.user) {
+          setSocialStatusVariant("success");
+          setSocialStatusMessage(successLabel);
+          await pause(SUCCESS_REDIRECT_DELAY_MS);
           redirectAfterAuth(result.user, navigate, from);
         }
       } catch (err) {
+        setSocialStatusMessage(null);
         setGoogleError(
           err instanceof ApiError
             ? err.message
@@ -55,7 +85,7 @@ function useSocialAuthHandler(from = "/offres") {
         setSocialLoading(false);
       }
     },
-    [from, loginWithGoogle, navigate]
+    [from, loginWithGoogle, navigate, progressLabel, successLabel]
   );
 
   const handleAppleSuccess = useCallback(
@@ -63,12 +93,15 @@ function useSocialAuthHandler(from = "/offres") {
       setSocialLoading(true);
       setGoogleError(null);
       setAppleError(null);
+      setSocialStatusVariant("info");
+      setSocialStatusMessage(appleProgressLabel);
       try {
         const authResult = await loginWithApple(result.credential, {
           prenom: result.prenom,
           nom: result.nom,
         });
         if (authResult.status === "link_required") {
+          setSocialStatusMessage(null);
           navigate("/associer-apple", {
             replace: true,
             state: {
@@ -80,9 +113,13 @@ function useSocialAuthHandler(from = "/offres") {
           return;
         }
         if (authResult.user) {
+          setSocialStatusVariant("success");
+          setSocialStatusMessage(appleSuccessLabel);
+          await pause(SUCCESS_REDIRECT_DELAY_MS);
           redirectAfterAuth(authResult.user, navigate, from);
         }
       } catch (err) {
+        setSocialStatusMessage(null);
         setAppleError(
           err instanceof ApiError
             ? err.message
@@ -92,11 +129,13 @@ function useSocialAuthHandler(from = "/offres") {
         setSocialLoading(false);
       }
     },
-    [from, loginWithApple, navigate]
+    [appleProgressLabel, appleSuccessLabel, from, loginWithApple, navigate]
   );
 
   return {
     socialLoading,
+    socialStatusMessage,
+    socialStatusVariant,
     googleError,
     appleError,
     handleGoogleSuccess,
@@ -114,7 +153,7 @@ function PasswordRequirements({ password }: { password: string }) {
     );
   }
   if (validation.valid) {
-    return <p className="text-xs text-emerald-700">Mot de passe conforme.</p>;
+    return <p className="text-xs text-brand-700">Mot de passe conforme.</p>;
   }
   return (
     <ul className="space-y-1 text-xs text-neutral-600">
@@ -135,31 +174,41 @@ export function LoginPage() {
   const successMessage = (location.state as { successMessage?: string })?.successMessage;
   const {
     socialLoading,
+    socialStatusMessage,
+    socialStatusVariant,
     googleError,
     appleError,
     handleGoogleSuccess,
     handleAppleSuccess,
     setGoogleError,
     setAppleError,
-  } = useSocialAuthHandler(from);
+  } = useSocialAuthHandler(from, "login");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusVariant, setStatusVariant] = useState<"info" | "success">("info");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setStatusVariant("info");
+    setStatusMessage("Connexion en cours…");
     try {
       const me = await login(email, password);
+      setStatusVariant("success");
+      setStatusMessage("Connexion réussie ! Redirection vers votre espace…");
+      await pause(SUCCESS_REDIRECT_DELAY_MS);
       redirectAfterAuth(me, navigate, from);
     } catch (err) {
+      setStatusMessage(null);
       if (err instanceof ApiError && err.status === 403) {
         navigate("/verification-email", {
           replace: true,
-          state: { email: email.trim().toLowerCase(), message: err.message },
+          state: { email: email.trim().toLowerCase() },
         });
         return;
       }
@@ -175,6 +224,7 @@ export function LoginPage() {
 
   return (
     <AuthSplitLayout
+      badge="Connexion"
       formTitle="Connexion"
       panelBrand
       panelTitle="Bienvenue à"
@@ -188,7 +238,7 @@ export function LoginPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {successMessage && (
           <AuthStagger index={1}>
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
               {successMessage}
             </p>
           </AuthStagger>
@@ -219,13 +269,27 @@ export function LoginPage() {
             Mot de passe oublié ?
           </Link>
         </AuthStagger>
+        {statusMessage && (
+          <AuthStatusMessage variant={statusVariant} message={statusMessage} stagger={4} />
+        )}
         {error && <AuthError message={error} stagger={4} />}
         {googleError && <AuthError message={googleError} stagger={4} />}
         {appleError && <AuthError message={appleError} stagger={4} />}
-        <AuthSubmitButton loading={loading} stagger={5}>
+        <AuthSubmitButton
+          loading={loading}
+          loadingLabel="Connexion en cours…"
+          stagger={5}
+        >
           Se connecter
         </AuthSubmitButton>
         <AuthDivider stagger={6} />
+        {socialStatusMessage && (
+          <AuthStatusMessage
+            variant={socialStatusVariant}
+            message={socialStatusMessage}
+            stagger={6}
+          />
+        )}
         <AuthSocialButtons
           stagger={6}
           googleDisabled={loading || socialLoading}
@@ -246,13 +310,15 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const {
     socialLoading,
+    socialStatusMessage,
+    socialStatusVariant,
     googleError,
     appleError,
     handleGoogleSuccess,
     handleAppleSuccess,
     setGoogleError,
     setAppleError,
-  } = useSocialAuthHandler("/mes-preferences");
+  } = useSocialAuthHandler("/mes-preferences", "register");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -261,6 +327,8 @@ export function RegisterPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusVariant, setStatusVariant] = useState<"info" | "success">("info");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -275,6 +343,8 @@ export function RegisterPage() {
     }
     setLoading(true);
     setError(null);
+    setStatusVariant("info");
+    setStatusMessage("Inscription en cours… Création de votre compte.");
     try {
       const result = await register(email, password, {
         prenom: firstName.trim() || undefined,
@@ -285,6 +355,7 @@ export function RegisterPage() {
         state: { email: result.email, message: result.message },
       });
     } catch (err) {
+      setStatusMessage(null);
       setError(err instanceof ApiError ? err.message : "Inscription impossible");
     } finally {
       setLoading(false);
@@ -293,6 +364,7 @@ export function RegisterPage() {
 
   return (
     <AuthSplitLayout
+      badge="Inscription"
       formTitle="Inscription"
       panelBrand
       panelTitle="Bienvenue à"
@@ -346,26 +418,48 @@ export function RegisterPage() {
           </AuthStagger>
         </div>
         <AuthStagger index={5}>
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-neutral-600">
+          <div className="flex items-start gap-2.5 text-sm text-neutral-600">
             <input
+              id="accept-terms"
               type="checkbox"
               checked={acceptTerms}
               onChange={(e) => setAcceptTerms(e.target.checked)}
-              className="auth-checkbox"
+              className="auth-checkbox mt-0.5"
             />
-            J&apos;accepte les{" "}
-            <span className="font-medium text-neutral-900 underline-offset-2 hover:underline">
-              conditions d&apos;utilisation
+            <span>
+              <label htmlFor="accept-terms" className="cursor-pointer">
+                J&apos;accepte les{" "}
+              </label>
+              <Link
+                to="/conditions-utilisation"
+                className="font-medium text-neutral-900 underline decoration-brand/40 underline-offset-4 hover:underline"
+              >
+                conditions d&apos;utilisation
+              </Link>
             </span>
-          </label>
+          </div>
         </AuthStagger>
+        {statusMessage && (
+          <AuthStatusMessage variant={statusVariant} message={statusMessage} stagger={5} />
+        )}
         {error && <AuthError message={error} stagger={5} />}
         {googleError && <AuthError message={googleError} stagger={5} />}
         {appleError && <AuthError message={appleError} stagger={5} />}
-        <AuthSubmitButton loading={loading} stagger={6}>
+        <AuthSubmitButton
+          loading={loading}
+          loadingLabel="Inscription en cours…"
+          stagger={6}
+        >
           Rejoignez-nous
         </AuthSubmitButton>
         <AuthDivider stagger={7} />
+        {socialStatusMessage && (
+          <AuthStatusMessage
+            variant={socialStatusVariant}
+            message={socialStatusMessage}
+            stagger={7}
+          />
+        )}
         <AuthSocialButtons
           stagger={7}
           googleDisabled={loading || socialLoading}
@@ -381,16 +475,16 @@ export function RegisterPage() {
   );
 }
 
-export function VerifyEmailPage() {
+export function VerifyEmailOtpPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { verifyEmail, resendEmailVerification } = useAuth();
-  const emailFromState = (location.state as { email?: string })?.email ?? "";
-  const initialMessage = (location.state as { message?: string })?.message ?? "";
+  const { verifyEmail } = useAuth();
+  const emailFromState = (location.state as { email?: string; message?: string })?.email ?? "";
+  const initialMessage = (location.state as { message?: string })?.message ?? null;
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(initialMessage || null);
+  const [info, setInfo] = useState<string | null>(initialMessage);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -418,6 +512,7 @@ export function VerifyEmailPage() {
     setInfo(null);
     try {
       const me = await verifyEmail(emailFromState, code);
+      await pause(SUCCESS_REDIRECT_DELAY_MS);
       redirectAfterAuth(me, navigate, "/mes-preferences");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Vérification impossible");
@@ -432,8 +527,8 @@ export function VerifyEmailPage() {
     setError(null);
     setInfo(null);
     try {
-      await resendEmailVerification(emailFromState);
-      setInfo("Un nouveau code de vérification a été envoyé à votre adresse email.");
+      const result = await authApi.resendEmailVerification(emailFromState);
+      setInfo(result.message);
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
@@ -454,23 +549,19 @@ export function VerifyEmailPage() {
 
   return (
     <AuthSplitLayout
+      badge="Activation"
       formTitle="Vérifiez votre email"
-      panelTitle="Activez votre compte"
+      panelTitle="Consultez votre boîte mail"
       panelSubtitle={`Saisissez le code à 6 chiffres envoyé à ${emailFromState}. Il expire dans 10 minutes.`}
       alternateLink={{
-        text: "Déjà vérifié ?",
+        text: "Déjà un compte ?",
         label: "Se connecter",
         to: "/connexion",
       }}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <AuthStagger index={1}>
-          <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">
-            <span className="font-medium text-neutral-900">Email :</span> {emailFromState}
-          </p>
-        </AuthStagger>
         <AuthField
-          id="email-otp-code"
+          id="email-verify-code"
           label="Code de vérification"
           inputMode="numeric"
           autoComplete="one-time-code"
@@ -482,14 +573,14 @@ export function VerifyEmailPage() {
         />
         {info && (
           <AuthStagger index={3}>
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
               {info}
             </p>
           </AuthStagger>
         )}
         {error && <AuthError message={error} stagger={3} />}
         <AuthSubmitButton loading={loading} stagger={4}>
-          Confirmer mon email
+          Activer mon compte
         </AuthSubmitButton>
         <AuthStagger index={5}>
           <button
@@ -535,6 +626,7 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthSplitLayout
+      badge="Récupération"
       formTitle="Mot de passe oublié"
       panelTitle="Récupérez l'accès"
       panelSubtitle="Saisissez votre email. Nous vous enverrons un code temporaire de vérification."
@@ -637,6 +729,7 @@ export function VerifyResetOtpPage() {
 
   return (
     <AuthSplitLayout
+      badge="Vérification"
       formTitle="Vérification du code"
       panelTitle="Consultez votre email"
       panelSubtitle={`Saisissez le code à 6 chiffres envoyé à ${emailFromState}. Il expire dans 10 minutes.`}
@@ -660,7 +753,7 @@ export function VerifyResetOtpPage() {
         />
         {info && (
           <AuthStagger index={3}>
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
               {info}
             </p>
           </AuthStagger>
@@ -737,6 +830,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthSplitLayout
+      badge="Sécurité"
       formTitle="Nouveau mot de passe"
       panelTitle="Sécurisez votre compte"
       panelSubtitle={`Choisissez un nouveau mot de passe pour ${email}.`}
@@ -820,6 +914,7 @@ export function LinkGooglePage() {
 
   return (
     <AuthSplitLayout
+      badge="Compte Google"
       formTitle="Associer Google"
       panelTitle="Compte existant détecté"
       panelSubtitle={`Un compte existe déjà avec ${email}. Confirmez votre mot de passe pour associer Google.`}
@@ -903,6 +998,7 @@ export function LinkApplePage() {
 
   return (
     <AuthSplitLayout
+      badge="Compte Apple"
       formTitle="Associer Apple"
       panelTitle="Compte existant détecté"
       panelSubtitle={`Un compte existe déjà avec ${email}. Confirmez votre mot de passe pour associer Apple.`}
@@ -978,6 +1074,7 @@ export function ChangePasswordPage() {
 
   return (
     <AuthSplitLayout
+      badge="Sécurité"
       formTitle="Nouveau mot de passe"
       panelTitle="Sécurisez votre compte"
       panelSubtitle={

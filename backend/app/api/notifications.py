@@ -17,8 +17,8 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
     response_model=NotificationTriggerResponse,
     summary="Déclencher manuellement l'envoi des notifications (admin)",
     description=(
-        "Envoie les alertes RSS aux abonnés actifs : nouvelles offres de la dernière "
-        "minute (ou intervalle configuré), filtrées selon leurs préférences secteurs/pays."
+        "Envoie les alertes aux abonnés actifs : offres encore ouvertes (date limite "
+        "non dépassée), filtrées selon leurs préférences secteurs/pays."
     ),
 )
 async def trigger_notifications(_admin: AdminUserDep) -> NotificationTriggerResponse:
@@ -54,7 +54,7 @@ async def preview_my_notifications(
 
     service = NotificationService()
     try:
-        result = service.send_to_abonne(abonne, preview=True, lookback_minutes=24 * 7 * 60)
+        result = service.send_to_abonne(abonne, preview=True)
     finally:
         service.close()
 

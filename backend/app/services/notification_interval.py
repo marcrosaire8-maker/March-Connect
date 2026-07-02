@@ -31,3 +31,8 @@ def notification_lookback_period_label() -> str:
     if remainder == 0:
         return "la dernière heure" if hours == 1 else f"les {hours} dernières heures"
     return f"les {minutes} dernières minutes"
+
+
+def notification_availability_label() -> str:
+    """Libellé pour les alertes basées sur les offres encore ouvertes."""
+    return "dont la date limite n'est pas encore atteinte"

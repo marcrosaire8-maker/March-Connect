@@ -30,7 +30,6 @@ interface AuthContextValue {
     options?: { prenom?: string; nom?: string }
   ) => Promise<RegisterResponse>;
   verifyEmail: (email: string, code: string) => Promise<User>;
-  resendEmailVerification: (email: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<GoogleAuthResponse & { user?: User }>;
   completeGoogleLink: (linkToken: string, password: string) => Promise<User>;
   loginWithApple: (
@@ -114,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyEmail = useCallback(async (email: string, code: string) => {
     const normalizedEmail = email.trim().toLowerCase();
-    const { access_token } = await authApi.verifyEmailOtp(normalizedEmail, code);
+    const { access_token } = await authApi.verifyEmail(normalizedEmail, code);
     setToken(access_token);
     const me = await authApi.me();
     if (me.preferences_configurees) {
@@ -122,10 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(me);
     return me;
-  }, []);
-
-  const resendEmailVerification = useCallback(async (email: string) => {
-    await authApi.resendEmailVerification(email.trim().toLowerCase());
   }, []);
 
   const loginWithGoogle = useCallback(async (credential: string) => {
@@ -209,7 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       verifyEmail,
-      resendEmailVerification,
       loginWithGoogle,
       completeGoogleLink,
       loginWithApple,
@@ -225,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasPrefsConfiguredForEmail(user?.email) ||
         hasPrefsConfiguredInSession(),
     }),
-    [user, loading, login, register, verifyEmail, resendEmailVerification, loginWithGoogle, completeGoogleLink, loginWithApple, completeAppleLink, logout, deleteAccount, refreshUser, markPreferencesConfigured]
+    [user, loading, login, register, verifyEmail, loginWithGoogle, completeGoogleLink, loginWithApple, completeAppleLink, logout, deleteAccount, refreshUser, markPreferencesConfigured]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

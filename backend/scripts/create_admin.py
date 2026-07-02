@@ -59,6 +59,7 @@ def main() -> int:
     existing = db.utilisateurs.find_one({"email": email})
     if existing:
         if args.reset_password:
+            now = datetime.now(timezone.utc)
             db.utilisateurs.update_one(
                 {"_id": existing["_id"]},
                 {
@@ -66,10 +67,13 @@ def main() -> int:
                         "mot_de_passe_hash": hash_password(args.password),
                         "must_change_password": False,
                         "role": UserRole.ADMIN.value,
+                        "email_verifie": True,
+                        "statut_email": "verifie",
+                        "date_verification_email": now,
                     }
                 },
             )
-            print(f"Mot de passe réinitialisé pour : {email}")
+            print(f"Compte admin réinitialisé : {email}")
             return 0
         if existing.get("role") == UserRole.ADMIN.value:
             print(f"Admin déjà existant : {email}")

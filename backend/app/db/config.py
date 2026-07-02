@@ -19,9 +19,8 @@ class Settings(BaseSettings):
     senegal_max_pages: int = 0
     notification_hour: int = 7
     notification_minute: int = 0
-    notification_interval_minutes: int = 1
-    resend_api_key: str = ""
-    resend_from_email: str = "MarchéConnect <onboarding@resend.dev>"
+    notification_interval_minutes: int = 15
+    notification_max_offres_per_email: int = 1
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""

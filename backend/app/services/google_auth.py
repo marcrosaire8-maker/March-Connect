@@ -21,7 +21,7 @@ from app.core.security import (
 from app.db.config import settings
 from app.models.enums import AuthProvider, EmailVerificationStatus, UserRole
 from app.services.abonne_prefs import ensure_abonne_linked_to_user
-from app.services.transactional_email import send_welcome_email_safe
+from app.services.transactional_email import deliver_welcome_email_if_needed
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,11 @@ def _profile_updates(profile: dict[str, Any]) -> dict[str, Any]:
 
 async def _issue_session(db: AsyncIOMotorDatabase, user: dict[str, Any]) -> str:
     await ensure_abonne_linked_to_user(db, user["_id"], user["email"])
+    await deliver_welcome_email_if_needed(
+        db,
+        user_id=user["_id"],
+        email=user["email"],
+    )
     return create_access_token(
         str(user["_id"]),
         user["email"],
@@ -179,7 +184,6 @@ async def authenticate_with_google(
     }
     result = await db.utilisateurs.insert_one(doc)
     doc["_id"] = result.inserted_id
-    send_welcome_email_safe(email)
     token = await _issue_session(db, doc)
     return {"status": "authenticated", "access_token": token}
 

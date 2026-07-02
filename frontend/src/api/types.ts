@@ -77,12 +77,6 @@ export interface User {
   date_verification_email?: string | null;
 }
 
-export interface RegisterResponse {
-  status: "verification_required";
-  email: string;
-  message: string;
-}
-
 export interface GoogleAuthResponse {
   status: "authenticated" | "link_required";
   access_token?: string | null;
@@ -97,6 +91,12 @@ export type AppleAuthResponse = GoogleAuthResponse;
 export interface TokenResponse {
   access_token: string;
   token_type: string;
+}
+
+export interface RegisterResponse {
+  status: string;
+  email: string;
+  message: string;
 }
 
 export interface Abonne {
@@ -168,6 +168,8 @@ export interface CalendrierOffreItem {
   organisme: string;
   pays: string;
   date_limite: string;
+  secteur_id?: string | null;
+  secteur_nom?: string | null;
 }
 
 export interface CalendrierJour {
