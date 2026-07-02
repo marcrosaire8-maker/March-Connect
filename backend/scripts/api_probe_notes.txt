@@ -1,0 +1,99 @@
+Probe started — listing page: https://www.marches-publics.bj/appels-doffres
+HTML saved: /tmp/mpbj.html (99911 bytes, HTTP 200)
+Script src URLs (8):
+  - https://www.googletagmanager.com/gtag/js?id=UA-159195744-1
+  - runtime-es2015.67dd11cf2c85286400a5.js
+  - runtime-es5.67dd11cf2c85286400a5.js
+  - polyfills-es5.dacd30a08fb9f0327b9e.js
+  - polyfills-es2015.131fa5ab3bbbe1d2f053.js
+  - scripts.064ddeceabfb48a5b514.js
+  - main-es2015.9bbe3114a6751391ade5.js
+  - main-es5.9bbe3114a6751391ade5.js
+Embedded JSON hints: ['embedded JSON snippet: {&q;transfer-translate-fr&q;:{&q;404&q;:&q;La page que vous demandez n&s;existe pas ou a été supprimée&q;,&q;afficher&q;:&q;Afficher&q;,&q;resend-invitation&q;:&q;Renvoyer invitation&q;,&q;Changer Mot...']
+SSR/card analysis: {"keyword_counts": {"appel": 12, "offre": 5, "avis": 14, "date limite": 2, "publication": 3, "organisme": 0}, "likely_spa_shell": true, "has_tender_like_markup": true}
+JS bundle https://www.googletagmanager.com/gtag/js?id=UA-159195744-1 (351002 chars)
+  grep [token]: ...,lm:"referral_exclusion_definition",ru:"_request_start_time",Ub:"restricted_data_processing",
+Bq:"retoken",Cq:"sample_rate",Vi:"screen_name",bd:"screen_resolution",om:"_script_sour...
+  grep [token]: ...3}function jk(){return fk()||Jf(50)}function mk(){return!!$i.yj&&$i.yj.split("@@").join("")!=="SGTM_TOKEN"}
+function nk(a){for(var b=m([F.D.Vd,F.D.dd]),c=b.next();!c.done;c=b.next(...
+JS bundle https://www.marches-publics.bj/runtime-es2015.67dd11cf2c85286400a5.js (2415 chars)
+JS bundle https://www.marches-publics.bj/runtime-es5.67dd11cf2c85286400a5.js (2412 chars)
+JS bundle https://www.marches-publics.bj/polyfills-es5.dacd30a08fb9f0327b9e.js (126074 chars)
+  grep [token]: ...SSRuleList:0,CSSStyleDeclaration:0,CSSValueList:0,ClientRectList:0,DOMRectList:0,DOMStringList:0,DOMTokenList:1,DataTransferItemList:0,FileList:0,HTMLAllCollection:0,HTMLCollection...
+JS bundle https://www.marches-publics.bj/polyfills-es2015.131fa5ab3bbbe1d2f053.js (37293 chars)
+JS bundle https://www.marches-publics.bj/scripts.064ddeceabfb48a5b514.js (414929 chars)
+  grep [token]: ...eElement("div");if(i.classList.toggle("test-class",!1),i.classList.contains("test-class")){var r=DOMTokenList.prototype.toggle;DOMTokenList.prototype.toggle=function(t,e){return ar...
+  grep [token]: ....toggle("test-class",!1),i.classList.contains("test-class")){var r=DOMTokenList.prototype.toggle;DOMTokenList.prototype.toggle=function(t,e){return arguments.length>1&&!this.contai...
+JS bundle https://www.marches-publics.bj/main-es2015.9bbe3114a6751391ade5.js (952865 chars)
+  grep [api.marches-publics.bj]: ...on(e,t,n){"use strict";n.d(t,"a",(function(){return r}));let r=(()=>{class e{}return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/"...
+  grep [api.marches-publics.bj]: ...}));let r=(()=>{class e{}return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://api.marches-publics.bj/api/",e.UI...
+  grep [authorization]: ...ructor(e){this.authService=e}intercept(e,t){return e=this.authService.isAuth()?e.clone({setHeaders:{Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-...
+  grep [bearer]: ...authService=e}intercept(e,t){return e=this.authService.isAuth()?e.clone({setHeaders:{Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-Origin":""+T.a....
+  grep [token]: ...EBKIT}}return e.ngInjectableDef=Object(r.Zb)({factory:function(){return new e(Object(r.ac)(r.F,8))},token:e,providedIn:"root"}),e})();class l{}const u=["color","button","checkbox",...
+  grep [token]: ...NT_NODE}}return e.ngInjectableDef=Object(s.Zb)({factory:function(){return new e(Object(s.ac)(r.d))},token:e,providedIn:"root"}),e})();class S{constructor(e){this._items=e,this._act...
+  grep [/v2/]: ...;n.d(t,"a",(function(){return r}));let r=(()=>{class e{}return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://ap...
+  grep [/v2/]: ...e{}return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://api.marches-publics.bj/api/",e.UI_URL="https://marches-...
+  headers block: Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-Origin":""+T.a.UI_URL
+JS bundle https://www.marches-publics.bj/main-es5.9bbe3114a6751391ade5.js (1066937 chars)
+  grep [api.marches-publics.bj]: ...on(){return r}));var r=function(){var e=function e(){_classCallCheck(this,e)};return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/"...
+  grep [api.marches-publics.bj]: ..._classCallCheck(this,e)};return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://api.marches-publics.bj/api/",e.UI...
+  grep [authorization]: ...ass(e,[{key:"intercept",value:function(e,t){return e=this.authService.isAuth()?e.clone({setHeaders:{Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-...
+  grep [bearer]: ...tercept",value:function(e,t){return e=this.authService.isAuth()?e.clone({setHeaders:{Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-Origin":""+S.a....
+  grep [token]: ...EBKIT};return e.ngInjectableDef=Object(i.Zb)({factory:function(){return new e(Object(i.ac)(i.F,8))},token:e,providedIn:"root"}),e}(),l=function e(){_classCallCheck(this,e)},c=["col...
+  grep [token]: ...}]),e}();return e.ngInjectableDef=Object(i.Zb)({factory:function(){return new e(Object(i.ac)(r.d))},token:e,providedIn:"root"}),e}(),b=function(){function e(t){var n=this;_classCal...
+  grep [/v2/]: ...=function(){var e=function e(){_classCallCheck(this,e)};return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://ap...
+  grep [/v2/]: ...)};return e.URL="https://api.marches-publics.bj/v2/api/",e.URL_MEDIA="https://api.marches-publics.bj/v2/",e.URL_OLD="https://api.marches-publics.bj/api/",e.UI_URL="https://marches-...
+  headers block: Authorization:"Bearer "+this.authService.getAccessToken(),"Access-Control-Allow-Origin":""+S.a.UI_URL
+API path strings from JS:
+  - https://api.marches-publics.bj/v2/api/
+
+=== API GET probes ===
+
+=== FINDINGS SUMMARY ===
+No successful JSON listing response in probe matrix.
+API base URL (from JS/domain): https://api.marches-publics.bj/v2
+Listing endpoint path(s): NOT CONFIRMED
+Required headers: NOT CONFIRMED
+Query params: NOT CONFIRMED (tried status 0/1/2, page, limit, size)
+Tender count: No JSON 200 response from probed endpoints; check HTML SSR or missing auth/params
+
+============================================================
+STRUCTURED FINDINGS (for scraper)
+============================================================
+{
+  "api_base": "https://api.marches-publics.bj/v2",
+  "listing_endpoints": [],
+  "required_headers": [],
+  "query_params": {},
+  "field_mapping": {},
+  "sample_snippet": null,
+  "tender_count_assessment": "No JSON 200 response from probed endpoints; check HTML SSR or missing auth/params",
+  "html_ssr": {
+    "embedded": [
+      "embedded JSON snippet: {&q;transfer-translate-fr&q;:{&q;404&q;:&q;La page que vous demandez n&s;existe pas ou a été supprimée&q;,&q;afficher&q;:&q;Afficher&q;,&q;resend-invitation&q;:&q;Renvoyer invitation&q;,&q;Changer Mot..."
+    ],
+    "analysis": {
+      "keyword_counts": {
+        "appel": 12,
+        "offre": 5,
+        "avis": 14,
+        "date limite": 2,
+        "publication": 3,
+        "organisme": 0
+      },
+      "likely_spa_shell": true,
+      "has_tender_like_markup": true
+    }
+  },
+  "script_srcs": [
+    "https://www.googletagmanager.com/gtag/js?id=UA-159195744-1",
+    "runtime-es2015.67dd11cf2c85286400a5.js",
+    "runtime-es5.67dd11cf2c85286400a5.js",
+    "polyfills-es5.dacd30a08fb9f0327b9e.js",
+    "polyfills-es2015.131fa5ab3bbbe1d2f053.js",
+    "scripts.064ddeceabfb48a5b514.js",
+    "main-es2015.9bbe3114a6751391ade5.js",
+    "main-es5.9bbe3114a6751391ade5.js"
+  ],
+  "errors": []
+}
